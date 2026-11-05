@@ -1,0 +1,51 @@
+{
+  "title": "Contarina SOL",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Collega Contarina SOL",
+        "description": "Accedi a https://sol.servizicontarina.it/ dal browser e inserisci il token JWT accessToken. Non inserire la password del portale. Il token scade dopo 55 minuti se non viene rinnovato.",
+        "data": {
+          "access_token": "Token di sessione del browser (accessToken)"
+        }
+      },
+      "contracts": {
+        "title": "Seleziona le utenze",
+        "description": "Scegli le utenze da monitorare in Home Assistant.",
+        "data": {
+          "contracts": "Utenze"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ricollega Contarina",
+        "description": "La sessione SOL è scaduta. Effettua il login dal browser e inserisci un nuovo accessToken.",
+        "data": {
+          "access_token": "Nuovo token di sessione"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Token non valido o scaduto",
+      "cannot_connect": "Impossibile collegarsi a Contarina SOL",
+      "invalid_contracts": "Seleziona almeno un'utenza valida"
+    },
+    "abort": {
+      "already_configured": "Account già configurato",
+      "reauth_successful": "Contarina ricollegata",
+      "reauth_wrong_account": "Questo token appartiene a un altro account"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Impostazioni Contarina",
+        "data": {
+          "calendar_horizon_days": "Giorni calendario da precaricare",
+          "poll_interval_hours": "Intervallo aggiornamento dati (ore)",
+          "billing_interval_hours": "Intervallo aggiornamento fatture (ore)",
+          "include_condominium": "Includi contenitori condominiali"
+        }
+      }
+    }
+  }
+}
