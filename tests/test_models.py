@@ -93,5 +93,113 @@ class ModelsTests(unittest.TestCase):
         self.assertEqual(models.iso_start(date(2026, 1, 1)), "2025-12-31T23:00:00.000Z")
         self.assertEqual(models.iso_end(date(2026, 12, 31)), "2026-12-31T22:59:59.999Z")
 
+    def test_date_display_is_text_and_none_is_preserved(self):
+        self.assertEqual(models.display_date(date(2026, 11, 5)), "05-11-2026")
+        self.assertIsNone(models.display_date(None))
+
+    def test_invoice_classification_by_deadline(self):
+        today = date(2026, 11, 5)
+        due = {"stato_fattura": 0, "tipo_perdita": 0}
+        self.assertEqual(models.invoice_bucket({**due, "scadenza": "2026-12-23"}, today), "upcoming")
+        self.assertEqual(models.invoice_bucket({**due, "scadenza": "2026-11-04"}, today), "overdue")
+        self.assertEqual(models.invoice_bucket({**due, "scadenza": "2026-11-05"}, today), "upcoming")
+        self.assertEqual(models.invoice_bucket({**due, "scadenza": None}, today), "review")
+        self.assertIsNone(models.invoice_bucket({"stato_fattura": 3, "tipo_perdita": 0}, today))
+        self.assertEqual(models.invoice_bucket(
+            {"stato_fattura": 7, "tipo_perdita": 0, "scadenza": "2026-12-23"},
+            today,
+        ), "review")
+
+    def test_invoice_summary_excludes_adjustments(self):
+        invoices = [
+            {"stato_fattura": 0, "tipo_perdita": 0, "data_emissione": "2026-10-01",
+             "scadenza": "2026-12-23", "tot_totalefatt": 127.12, "importo_pagato_totale": 0},
+            {"stato_fattura": 3, "tipo_perdita": 0, "data_emissione": "2026-03-01",
+             "scadenza": "2026-05-01", "tot_totalefatt": 72.88, "importo_pagato_totale": 72.88},
+            {"stato_fattura": 3, "tipo_perdita": 0, "data_emissione": "2025-01-01",
+             "scadenza": "2025-02-01", "tot_totalefatt": 40},
+            {"stato_fattura": 42, "tipo_perdita": 99, "data_emissione": "2026-04-01",
+             "tot_totalefatt": 55},
+            {"stato_fattura": 4, "tipo_perdita": 0, "data_emissione": "2026-04-02",
+             "tot_totalefatt": 23.45},
+            {"stato_fattura": 999, "tipo_perdita": 0, "data_emissione": "2026-04-03",
+             "tot_totalefatt": 17},
+        ]
+        summary = models.invoice_summary(invoices, 2026, date(2026, 11, 5))
+        self.assertEqual(summary["count"], 6)
+        self.assertEqual(summary["open"], 1)
+        self.assertEqual(summary["upcoming"], 1)
+        self.assertEqual(summary["overdue"], 0)
+        self.assertEqual(summary["review"], 0)
+        self.assertEqual(summary["year_total"], 200.0)
+        self.assertEqual(summary["year_totals"], {"2025": 40.0, "2026": 200.0})
+        self.assertEqual(summary["excluded_count"], 3)
+        self.assertEqual(summary["history"][0]["emissione"], "2026-10-01")
+        self.assertEqual(summary["history"][0]["importo_pagato_registrato"], 0)
+        self.assertEqual(summary["history"][0]["importo"], 127.12)
+
+    def test_invoice_summary_unpaid_overdue_not_balance_claim(self):
+        summary = models.invoice_summary([
+            {"stato_fattura": 8, "tipo_perdita": 0,
+             "data_emissione": "2026-01-01", "scadenza": "2026-02-01",
+             "tot_totalefatt": "10.50"},
+            {"stato_fattura": 7, "tipo_perdita": 0,
+             "data_emissione": "2026-03-01", "scadenza": "2026-12-01",
+             "tot_totalefatt": "12.50"},
+            {"stato_fattura": 0, "tipo_perdita": 0,
+             "data_emissione": "2026-04-01", "tot_totalefatt": "3.00"},
+        ], 2026, date(2026, 11, 5))
+        self.assertEqual(summary["year_total"], 26.0)
+        self.assertEqual(summary["overdue"], 1)
+        self.assertEqual(summary["upcoming"], 0)
+        self.assertEqual(summary["review"], 2)
+
+    def test_invoice_summary_rejects_invalid_amounts(self):
+        summary = models.invoice_summary([
+            {"stato_fattura": 3, "tipo_perdita": 0,
+             "data_emissione": "2026-01-01", "tot_totalefatt": "NaN"},
+            {"stato_fattura": 3, "tipo_perdita": 0,
+             "data_emissione": "2026-02-01", "tot_totalefatt": "Infinity"},
+            {"stato_fattura": 3, "tipo_perdita": 0,
+             "data_emissione": "2026-03-01", "tot_totalefatt": "5.50"},
+        ], 2026, date(2026, 11, 5))
+        self.assertEqual(summary["year_total"], 5.50)
+        self.assertEqual(summary["excluded_count"], 2)
+
+    def test_invoice_history_attribute_limit(self):
+        invoices = [
+            {"stato_fattura": 3, "tipo_perdita": 0,
+             "data_emissione": "2026-01-01", "tot_totalefatt": 1}
+            for _ in range(70)
+        ]
+        summary = models.invoice_summary(invoices, 2026, date(2026, 11, 5))
+        self.assertEqual(summary["count"], 70)
+        self.assertEqual(summary["year_total"], 70.0)
+        self.assertEqual(len(summary["history"]), 60)
+        self.assertTrue(summary["history_truncated"])
+
+    def test_last_emptying_across_years(self):
+        historical = [
+            {"id_vuotamento": 1, "data": "2024-04-12T09:00:00Z"},
+            {"id_vuotamento": 2, "data": "2025-06-12T09:00:00Z"},
+        ]
+        self.assertEqual(models.count_emptyings(historical, 2026), 0)
+        self.assertEqual(models.last_emptying(historical), date(2025, 6, 12))
+        self.assertEqual(models.display_date(models.last_emptying(historical)), "12-06-2025")
+
+    def test_material_names_are_readable_and_not_inferred_from_codes(self):
+        cases = [
+            ("Carta", "Carta"),
+            ("Secco non riciclabile", "Secco"),
+            ("Vetro Plastica Lattine", "VPL"),
+            ("Umido", "Umido"),
+            ("Vegetale", "Vegetale"),
+            (None, "Contenitore"),
+            ("Metallo", "Metallo"),
+        ]
+        for source, expected in cases:
+            with self.subTest(material=source):
+                self.assertEqual(models.material_label(source), expected)
+
 if __name__ == "__main__":
     unittest.main()

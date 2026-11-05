@@ -25,3 +25,12 @@
 - [ ] Migrate packages/awtrix3/awtrix_rifiuti.yaml and packages/raccolta_differenziata_2025.yaml.
 - [ ] Migrate CASA dashboard cards and verify no stale references.
 - [ ] Remove Waste Collection Schedule only after equivalence tests and an approved rollback plan.
+
+## 0.2.1b1 additional checks
+
+- [ ] GitHub CI: test invoice status classification near due dates, excluded adjustments, annual gross totals, nonfinite amounts, historical dates, bounded attributes.
+- [ ] Verify the new labels and date formatting on a *separately approved* Home Assistant update.
+- [ ] Check the mapping of material labels against multiple containers with the same material.
+- [ ] Compare annual invoice totals and excluded documents against SOL; do not interpret billed totals as actual cash spend.
+- [ ] Check the enlarged historical emptying query against live SOL and ensure no rate-limit/timeouts.
+- [ ] Confirm entity registry `unique_id` / `entity_id` continuity and existing AWTRIX and notification automations before migration.

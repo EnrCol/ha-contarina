@@ -1,4 +1,4 @@
-# Contarina SOL — Technical specification 0.2
+# Contarina SOL — Technical specification 0.2.1b1
 
 Status: isolated beta, not installed on the user's live Home Assistant.
 
@@ -25,3 +25,12 @@ One Home Assistant device per selected contract. Native calendar, sensors, binar
 Out of scope until verified: amount owed, pricing and minimum included emptyings; non-domestic multi-area behavior; uninterrupted renewal past seven days; accessible browser-based token bootstrap.
 
 Before migration, compare the new calendar and entities to waste_collection_schedule, and update all dashboard, AWTRIX, Alexa and mobile notification dependencies. Do not remove legacy configuration without approval.
+
+## 0.2.1b1 — invoice and date details
+
+- Status classifier: `due` with a known due date today or later → `in scadenza`; earlier → `scaduta da verificare`; `unpaid`/`partially_paid` without an elapsed deadline → `pagamento da verificare`. No status field alone proves a debt, because account-level `check-balance` remains independent.
+- Issuance-year gross invoice sum: includes statuses paid/due/unpaid/partially_paid, excludes compensated/refunded/cancelled/unknown and missing/nonfinite values. This does **not** represent cash paid during the year. Yearly totals and per-invoice attributes are derived from the live SOL account data, not an additional database.
+- `ultimo_svuotamento`: query from `DATA_INIZIO` to today or `DATA_FINE`, calculate current-year count separately. If no `DATA_INIZIO`, use at most 10 years and mark the incomplete history.
+- Dates in the two display sensors are `dd-mm-YYYY` strings. The ISO date is exposed as `data_iso`; native `calendar` retains proper date events.
+- Stable entity `unique_id` values remain unchanged even though displayed names omit the bin codes. Existing registry `entity_id` values do not silently change.
+- The last 60 individual invoices are stored as reduced, non-raw attributes; aggregate yearly totals include all retrieved invoices.

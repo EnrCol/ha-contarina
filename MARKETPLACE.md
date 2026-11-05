@@ -1,4 +1,4 @@
-# Marketplace install instructions — beta 0.2.0b1
+# Marketplace install instructions — beta 0.2.1b1
 
 Repository: https://github.com/EnrCol/ha-contarina (public, custom integration).
 
@@ -14,3 +14,5 @@ Only the initial token and subsequent reauth require browser login; the integrat
 **Beta warning:** the custom integration is not yet tested on an isolated HA instance; do not install in production without first verifying GitHub Actions and the test plan.
 
 Rollback: remove the Contarina config entry and uninstall the custom repository from Marketplace. Existing waste integrations and automations are unaffected.
+
+After an approved update, verify the new `Fatture in scadenza`, `Fatture scadute da verificare` and `Totale fatturato anno` sensors. Existing entity IDs are intentionally kept. The updated last-emptying and next-collection sensors are display strings (DD-MM-YYYY) with `data_iso` attributes. To return to beta 0.2.0b1, reinstall the previously tested commit `a463eb17e65ed981c84a2aeaee9caa97f29e9594`; preserve the configuration and check the old data format before re-enabling automations.

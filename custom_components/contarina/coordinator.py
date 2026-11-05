@@ -16,7 +16,7 @@ from .const import (
 )
 from .models import (
     ResponseShapeError, calendar_dates, date_only, is_active, iso_end, iso_start,
-    count_emptyings, last_emptying,
+    count_emptyings, last_emptying, invoice_summary,
 )
 
 class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
@@ -87,11 +87,15 @@ class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 if not code:
                     continue
                 code = str(code)
-                start = date_only(item.get("DATA_INIZIO")) or today
+                started = date_only(item.get("DATA_INIZIO"))
                 end = date_only(item.get("DATA_FINE"))
                 if end and end.year < today.year:
                     continue
-                range_start = max(start, date(today.year, 1, 1))
+                # Query the registered lifetime of this container, not only the
+                # current year. An older last emptying must remain discoverable.
+                # If SOL omits the start date, the last 10 years are a documented
+                # fallback rather than an unbounded request.
+                range_start = started or date(max(2000, today.year - 10), 1, 1)
                 range_end = min(end or today, today)
                 if range_end < range_start:
                     events = []
@@ -104,6 +108,8 @@ class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                     "active": is_active(item, today),
                     "count_year": count_emptyings(events, today.year),
                     "last_emptying": last_emptying(events),
+                    "history_from": range_start.isoformat(),
+                    "history_complete": started is not None,
                 }
             if need_billing or ref not in self._billing_cache:
                 invoices, settled = await asyncio.gather(
@@ -119,6 +125,7 @@ class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
                 "calendar": collection,
                 "containers": containers,
                 "invoices": invoices,
+                "invoice_summary": invoice_summary(invoices, today.year, today),
                 "balance_ok": settled,
             }
         if need_billing:

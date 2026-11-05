@@ -149,3 +149,113 @@ def iso_start(day: date) -> str:
 def iso_end(day: date) -> str:
     local = datetime.combine(day, time(23, 59, 59, 999000), ZoneInfo("Europe/Rome"))
     return local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.999Z")
+
+# Amounts are grouped by invoice issuance year, not by payment transaction date.
+# Credit/refund/compensation/cancellation and unknown states are excluded until
+# SOL supplies a verified accounting meaning for them.
+BILLABLE_STATUSES = frozenset(("paid", "unpaid", "partially_paid", "due"))
+OPEN_STATUSES = frozenset(("unpaid", "partially_paid", "due"))
+
+
+def display_date(value: date | None) -> str | None:
+    """Show a human-readable local date while keeping ISO in attributes."""
+    return value.strftime("%d-%m-%Y") if value is not None else None
+
+
+def invoice_bucket(invoice: dict[str, Any], today: date) -> str | None:
+    """Classify an unsettled invoice without claiming that a debt exists."""
+    state = invoice_status(invoice)
+    if state not in OPEN_STATUSES:
+        return None
+    due = date_only(invoice.get("scadenza"))
+    if due is None:
+        return "review"
+    if due < today:
+        return "overdue"
+    return "upcoming" if state == "due" else "review"
+
+
+def _safe_amount(value: Any) -> Decimal | None:
+    amount = decimal_amount(value)
+    return amount if amount is not None and amount.is_finite() else None
+
+
+def invoice_summary(items: Any, year: int, today: date) -> dict[str, Any]:
+    """Summarize SOL invoices without assuming amounts are paid or outstanding.
+
+    Totals include known invoice states only and are by issue date. Unknown,
+    cancelled, refunded and compensated documents are not netted into totals:
+    the API's credit-note accounting is not verified.
+    """
+    invoices = required_list(items)
+    yearly_totals: dict[int, Decimal] = {}
+    history: list[dict[str, Any]] = []
+    excluded = 0
+    open_count = 0
+    upcoming_count = 0
+    overdue_count = 0
+    review_count = 0
+    for item in invoices:
+        status = invoice_status(item)
+        issued = date_only(item.get("data_emissione"))
+        due = date_only(item.get("scadenza"))
+        amount = _safe_amount(item.get("tot_totalefatt"))
+        paid = _safe_amount(item.get("importo_pagato_totale"))
+        bucket = invoice_bucket(item, today)
+        if bucket is not None:
+            open_count += 1
+            if bucket == "upcoming":
+                upcoming_count += 1
+            elif bucket == "overdue":
+                overdue_count += 1
+            else:
+                review_count += 1
+        includable = issued is not None and amount is not None and status in BILLABLE_STATUSES
+        if includable:
+            yearly_totals[issued.year] = yearly_totals.get(issued.year, Decimal("0")) + amount
+        else:
+            excluded += 1
+        history.append({
+            "emissione": issued.isoformat() if issued else None,
+            "scadenza": due.isoformat() if due else None,
+            "importo": float(amount) if amount is not None else None,
+            "importo_pagato_registrato": float(paid) if paid is not None else None,
+            "stato": status,
+            "compreso_nel_fatturato": includable,
+        })
+    history.sort(key=lambda row: row["emissione"] or "", reverse=True)
+    annual_totals = {str(y): float(yearly_totals[y]) for y in sorted(yearly_totals)}
+    # Home Assistant limits the size of entity state attributes. The complete
+    # annual summary is retained, while per-invoice UI history is bounded.
+    history_limit = 60
+    return {
+        "count": len(invoices),
+        "open": open_count,
+        "upcoming": upcoming_count,
+        "overdue": overdue_count,
+        "review": review_count,
+        "year": year,
+        "year_total": float(yearly_totals.get(year, Decimal("0"))),
+        "year_totals": annual_totals,
+        "excluded_count": excluded,
+        "history": history[:history_limit],
+        "history_truncated": len(history) > history_limit,
+    }
+
+def material_label(material: Any) -> str:
+    """Readable SOL material label; never infer it from a container serial."""
+    if isinstance(material, str) and material.strip():
+        value = material.strip()
+        lower = value.casefold()
+        if "secco" in lower:
+            return "Secco"
+        if "vegetale" in lower:
+            return "Vegetale"
+        if "umido" in lower:
+            return "Umido"
+        if "carta" in lower:
+            return "Carta"
+        if "vetro" in lower or "plastica" in lower or "lattine" in lower:
+            return "VPL"
+        return value
+    return "Contenitore"
