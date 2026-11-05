@@ -259,3 +259,43 @@ def material_label(material: Any) -> str:
             return "VPL"
         return value
     return "Contenitore"
+
+
+def _whole_nonnegative(value: Any) -> int | None:
+    """Accept integer-like SOL values without silently truncating fractions."""
+    if isinstance(value, bool):
+        return None
+    text = str(value).strip()
+    return int(text) if text.isdecimal() else None
+
+
+def secco_minimum_120l(
+    components: Any,
+    capacity_liters: Any,
+    emptyings_year: Any,
+    *,
+    is_domestic: bool,
+    secco_container_count: int = 1,
+) -> dict[str, Any]:
+    """Estimate Contarina's annual Secco minimum for one domestic 120 L bin.
+
+    The number of family members returned by SOL may be current rather than
+    the value on 31 December of the previous year used for invoicing.
+    No minimum is inferred for other container sizes or contract categories.
+    """
+    if not is_domestic or secco_container_count != 1:
+        return {}
+    members = _whole_nonnegative(components)
+    liters = _whole_nonnegative(capacity_liters)
+    actual = _whole_nonnegative(emptyings_year)
+    if members is None or members < 1 or liters != 120 or actual is None:
+        return {}
+    minimum = members + 1
+    return {
+        "minimo_annuo_stimato": minimum,
+        "svuotamenti_prima_eccedenza": max(0, minimum - actual),
+        "svuotamenti_oltre_minimo": max(0, actual - minimum),
+        "componenti_calcolo": members,
+        "criterio_minimo": "Contarina: utenza domestica, bidone Secco 120 L, componenti + 1",
+        "verifica_componenti_31_12_precedente": True,
+    }

@@ -1,4 +1,4 @@
-# Contarina SOL — Home Assistant integration (prototype 0.2.1b1)
+# Contarina SOL — Home Assistant integration (prototype 0.2.2b1)
 
 **Unofficial community integration. Not affiliated with Contarina S.p.A.**
 
@@ -60,3 +60,24 @@ License: MIT.
 - To display **Rifiuti oggi** before **Rifiuti domani** and show upcoming collection dates, use the explicit dashboard configuration in [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). The alphabetical auto-generated device list cannot be reordered by this integration.
 
 All changes are limited to the GitHub source. Installing an update in Home Assistant is a separate operation requiring approval.
+
+## Beta 0.2.2 — Secco tariff threshold (read-only)
+
+For a **single active domestic Secco bin of 120 L**, the existing annual-emptyings
+sensor exposes `minimo_annuo_stimato`, `svuotamenti_prima_eccedenza`,
+`svuotamenti_oltre_minimo` and `componenti_calcolo` as attributes.
+The annual minimum is **household members + 1**, as described in the official
+[Contarina FAQ](https://contarina.it/faq-domande-frequenti).
+
+**This is an estimated billed minimum, not free emptyings.** The currently
+reported household count may differ from the count used by Contarina on
+31 December of the previous year. `verifica_componenti_31_12_precedente`
+marks this caveat. The integration deliberately does not infer minima for
+other bin capacities, non-domestic contracts, invalid data or multiple Secco
+bins. No additional sensors or entities are created; IDs remain unchanged.
+
+The personal Home Assistant "Contarina" dashboard can display an invoice
+history table from the existing `Fatture disponibili` entity attribute
+`storico_fatture` and a Secco summary. This private dashboard is configured
+on Home Assistant itself; it is not automatically installed by HACS. Keep
+financial details out of public dashboards.

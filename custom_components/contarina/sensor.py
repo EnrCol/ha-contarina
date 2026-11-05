@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .coordinator import ContarinaCoordinator
 from .entity import ContarinaEntity
-from .models import decimal_amount, display_date, invoice_status, latest_invoice, next_collection, material_label
+from .models import decimal_amount, display_date, invoice_status, latest_invoice, next_collection, material_label, secco_minimum_120l
 
 
 class ContarinaSensor(ContarinaEntity, SensorEntity):
@@ -165,6 +165,28 @@ def _container_attributes(data: dict[str, Any], code: str) -> dict[str, Any]:
     }
 
 
+def _annual_emptying_attributes(data: dict[str, Any], code: str) -> dict[str, Any]:
+    """Attach a conservative Secco minimum estimate to an existing bin entity."""
+    details = _container_attributes(data, code)
+    container = data.get("containers", {}).get(code, {})
+    if material_label(container.get("material")) != "Secco":
+        return details
+    secco_bins = sum(
+        material_label(value.get("material")) == "Secco"
+        for value in data.get("containers", {}).values()
+    )
+    contract = data.get("contract", {})
+    result = secco_minimum_120l(
+        components=data.get("detail", {}).get("numero_componenti_c"),
+        capacity_liters=container.get("liters"),
+        emptyings_year=container.get("count_year"),
+        is_domestic=str(contract.get("tipologia_utenza_c")) == "1",
+        secco_container_count=secco_bins,
+    )
+    details.update(result)
+    return details
+
+
 def _last_emptying_attributes(data: dict[str, Any], code: str) -> dict[str, Any]:
     details = _container_attributes(data, code)
     last = data.get("containers", {}).get(code, {}).get("last_emptying")
@@ -192,7 +214,7 @@ async def async_setup_entry(
                 coordinator, ref, f"svuotamenti_{code}", f"Svuotamenti anno - {label}",
                 lambda d, cid=code: d.get("containers", {}).get(cid, {}).get("count_year"),
                 state_class=SensorStateClass.TOTAL_INCREASING,
-                attributes=lambda d, cid=code: _container_attributes(d, cid),
+                attributes=lambda d, cid=code: _annual_emptying_attributes(d, cid),
             ))
             entities.append(ContarinaSensor(
                 coordinator, ref, f"ultimo_svuotamento_{code}", f"Ultimo svuotamento - {label}",
