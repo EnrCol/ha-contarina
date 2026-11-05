@@ -16,6 +16,7 @@ jobs:
         run: |
           python -m compileall -q custom_components tests
           python -m json.tool custom_components/contarina/manifest.json >/dev/null
-          python -m json.tool custom_components/contarina/strings.json >/dev/null
+          python -m json.tool custom_components/contarina/translations/en.json >/dev/null
+          python -m json.tool custom_components/contarina/translations/it.json >/dev/null
       - name: Unit tests
         run: python -m unittest discover -s tests -v
