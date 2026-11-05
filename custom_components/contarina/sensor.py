@@ -169,7 +169,7 @@ def _annual_emptying_attributes(data: dict[str, Any], code: str) -> dict[str, An
     """Attach a conservative Secco minimum estimate to an existing bin entity."""
     details = _container_attributes(data, code)
     container = data.get("containers", {}).get(code, {})
-    if material_label(container.get("material")) != "Secco":
+    if not container.get("active") or material_label(container.get("material")) != "Secco":
         return details
     secco_bins = sum(
         material_label(value.get("material")) == "Secco"
