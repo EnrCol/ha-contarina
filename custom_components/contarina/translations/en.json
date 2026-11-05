@@ -1,10 +1,9 @@
 {
-  "title": "Contarina SOL",
   "config": {
     "step": {
       "user": {
         "title": "Connect to Contarina SOL",
-        "description": "Sign in at https://sol.servizicontarina.it/ in your own browser, then provide the JWT accessToken. Do not enter your SOL password. The token expires after 55 minutes unless the integration refreshes it.",
+        "description": "Sign in to the Contarina SOL portal in your browser and provide the accessToken JWT. Do not enter your portal password. The token expires after 55 minutes unless the integration refreshes it.",
         "data": {
           "access_token": "Browser session token (accessToken)"
         }

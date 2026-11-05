@@ -1,10 +1,9 @@
 {
-  "title": "Contarina SOL",
   "config": {
     "step": {
       "user": {
         "title": "Collega Contarina SOL",
-        "description": "Accedi a https://sol.servizicontarina.it/ dal browser e inserisci il token JWT accessToken. Non inserire la password del portale. Il token scade dopo 55 minuti se non viene rinnovato.",
+        "description": "Accedi allo Sportello Online Contarina dal browser e inserisci il token JWT accessToken. Non inserire la password del portale. Il token scade dopo 55 minuti se non viene rinnovato.",
         "data": {
           "access_token": "Token di sessione del browser (accessToken)"
         }
