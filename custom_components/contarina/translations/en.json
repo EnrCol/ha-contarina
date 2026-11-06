@@ -16,22 +16,37 @@
         }
       },
       "reauth_confirm": {
-        "title": "Reconnect Contarina",
-        "description": "The SOL session expired. Log in again via the browser and enter a fresh accessToken.",
-        "data": {
-          "access_token": "New browser session token"
+        "title": "Reconnect Contarina SOL",
+        "description": "Choose how to provide a new SOL session. Login always happens on the official website; Home Assistant never sees your password.",
+        "menu_options": {
+          "reconnect_browser": "Reconnect from the browser (recommended)",
+          "reconnect_paste": "Paste the token manually"
         }
+      },
+      "reconnect_paste": {
+        "title": "Paste the SOL token",
+        "description": "Sign in to SOL, copy the token with the «Copia token Contarina» bookmark and paste it here within a few minutes.",
+        "data": {
+          "access_token": "New session token (accessToken)"
+        }
+      },
+      "reconnect_browser": {
+        "title": "Reconnect from the browser",
+        "description": "Click **Open website** to open the reconnect page. Sign in to Contarina SOL and click the «Invia token a Home Assistant» bookmark. This window updates automatically."
       }
     },
     "error": {
       "invalid_auth": "Token invalid or expired",
       "cannot_connect": "Cannot connect to Contarina SOL",
-      "invalid_contracts": "Select at least one valid contract"
+      "invalid_contracts": "Select at least one valid contract",
+      "wrong_account": "This token belongs to another SOL account",
+      "no_url": "Home Assistant URL could not be determined: paste the token or set the URL in Settings → System → Network"
     },
     "abort": {
       "already_configured": "Account already configured",
       "reauth_successful": "Contarina reconnected",
-      "reauth_wrong_account": "This token belongs to another account"
+      "reauth_wrong_account": "This token belongs to another account",
+      "reconfigure_successful": "Contarina reconnected"
     }
   },
   "options": {

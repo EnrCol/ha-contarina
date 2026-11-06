@@ -16,22 +16,37 @@
         }
       },
       "reauth_confirm": {
-        "title": "Ricollega Contarina",
-        "description": "La sessione SOL è scaduta. Effettua il login dal browser e inserisci un nuovo accessToken.",
-        "data": {
-          "access_token": "Nuovo token di sessione"
+        "title": "Riconnetti Contarina SOL",
+        "description": "Scegli come fornire una nuova sessione SOL. Il login avviene sempre sul sito ufficiale; Home Assistant non conosce la tua password.",
+        "menu_options": {
+          "reconnect_browser": "Riconnetti dal browser (consigliato)",
+          "reconnect_paste": "Incolla il token manualmente"
         }
+      },
+      "reconnect_paste": {
+        "title": "Incolla il token SOL",
+        "description": "Accedi a SOL, copia il token con il preferito «Copia token Contarina» e incollalo qui entro pochi minuti.",
+        "data": {
+          "access_token": "Nuovo token di sessione (accessToken)"
+        }
+      },
+      "reconnect_browser": {
+        "title": "Riconnessione dal browser",
+        "description": "Clicca **Apri sito web**: si apre la pagina di riconnessione. Accedi a Contarina SOL e clicca il preferito «Invia token a Home Assistant». Questa finestra si aggiornerà da sola."
       }
     },
     "error": {
       "invalid_auth": "Token non valido o scaduto",
       "cannot_connect": "Impossibile collegarsi a Contarina SOL",
-      "invalid_contracts": "Seleziona almeno un'utenza valida"
+      "invalid_contracts": "Seleziona almeno un'utenza valida",
+      "wrong_account": "Il token appartiene a un altro account SOL",
+      "no_url": "Indirizzo di Home Assistant non determinabile: usa il copia-incolla oppure imposta l'URL in Impostazioni → Sistema → Rete"
     },
     "abort": {
       "already_configured": "Account già configurato",
       "reauth_successful": "Contarina ricollegata",
-      "reauth_wrong_account": "Questo token appartiene a un altro account"
+      "reauth_wrong_account": "Questo token appartiene a un altro account",
+      "reconfigure_successful": "Contarina ricollegata"
     }
   },
   "options": {

@@ -14,7 +14,12 @@ CONF_CONDOS = "include_condominium"
 DEFAULT_HORIZON = 60
 DEFAULT_POLL_HOURS = 6
 DEFAULT_BILL_HOURS = 12
-TOKEN_REFRESH_INTERVAL = timedelta(minutes=15)
+# SOL JWT lifetime is 3300 s and an expired JWT cannot be refreshed (401).
+# Keep-alive every 10 min, unconditional unless the token is <5 min old:
+# remaining validity never drops below ~45 min while HA is online.
+TOKEN_REFRESH_INTERVAL = timedelta(minutes=10)
+KEEPALIVE_SKIP_IF_FRESHER_SECONDS = 3300 - 5 * 60
+# Data calls refresh on demand only when less than this is left.
 TOKEN_REFRESH_MARGIN_SECONDS = 30 * 60
 MAX_PAGES = 25
 REQUEST_TIMEOUT_SECONDS = 30

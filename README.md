@@ -28,11 +28,18 @@
 
 ### Accesso assistito (sperimentale)
 
-Per evitare gli strumenti sviluppatore stiamo provando un **bookmarklet**: un preferito eseguito *solo sulla pagina SOL già autenticata*, che legge il cookie `accessToken` e lo copia negli appunti senza inviarlo ad altri siti. Prima dell'uso leggi [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md) e il [codice leggibile](tools/contarina_token_bookmarklet.js).
+**Riconnessione senza copia-incolla (0.2.4b1):** *Riconfigura → Riconnetti dal browser* apre SOL; dopo il login un preferito invia il token direttamente a Home Assistant con un codice monouso. Dettagli in [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md).
 
-Il metodo è **testato solo con cookie sintetici**: sul browser reale va ancora verificato che `document.cookie` renda disponibile `accessToken`. Se non compare, resta valida la procedura DevTools. Non è supportato il login automatico con username/password né un bypass di reCAPTCHA.
+Per evitare gli strumenti sviluppatore c'è anche un **bookmarklet**: un preferito eseguito *solo sulla pagina SOL già autenticata*, che legge il cookie `accessToken` e lo copia negli appunti senza inviarlo ad altri siti. Prima dell'uso leggi [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md) e il [codice leggibile](tools/contarina_token_bookmarklet.js).
 
-Il JWT dura circa **55 minuti**: Home Assistant lo rinnova mentre rimane online; un'interruzione superiore al tempo residuo richiede una nuova autenticazione dal browser. La durata massima assoluta dei rinnovi concatenati non è ancora nota.
+Su una sessione SOL reale è stato verificato che `document.cookie` espone `accessToken` (cookie non HttpOnly). La copia negli appunti del bookmarklet dipende dal browser; se viene bloccata resta la copia manuale o la procedura DevTools. Non è supportato il login automatico con username/password né un bypass di reCAPTCHA.
+
+Il JWT dura circa **55 minuti** e SOL **non rinnova un token già scaduto** (HTTP 401). Home Assistant lo rinnova ogni 10 minuti mentre è online, quindi il residuo resta sempre di almeno ~45 minuti.
+
+- Riavvii, aggiornamenti e brevi interruzioni di rete (fino a ~45 minuti): nessun intervento.
+- Home Assistant spento o offline più a lungo: compare la richiesta di riautenticazione; accedi su SOL e incolla un nuovo token (bookmarklet).
+
+SOL non usa refresh token, sessioni lato server o cookie di rinnovo: l'unica credenziale è il JWT (verificato). La durata massima assoluta dei rinnovi concatenati non è ancora nota.
 
 ## Card Lovelace di esempio
 

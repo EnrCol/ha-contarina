@@ -8,16 +8,21 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
 from .api import ContarinaApi, ContarinaAuthError, ContarinaConnectionError
 from .auth import ContarinaSession
-from .const import DOMAIN, TOKEN_REFRESH_INTERVAL
+from .const import TOKEN_REFRESH_INTERVAL
 from .coordinator import ContarinaCoordinator
+from .reconnect import async_register_views
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CALENDAR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Before any auth check: the reauth flow's browser reconnect needs the views.
+    async_register_views(hass)
     api = ContarinaApi(async_get_clientsession(hass))
     session = ContarinaSession(hass, entry, api)
     try:
-        await session.ensure_valid()
+        # Refresh at startup unless the token is <5 min old: full ~55 min of
+        # validity from the first minute, not just "more than the margin".
+        await session.keepalive()
     except ContarinaAuthError as exc:
         raise ConfigEntryAuthFailed("Contarina browser login required") from exc
     except ContarinaConnectionError as exc:
@@ -28,7 +33,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def refresh_token(_now) -> None:
         try:
-            await session.ensure_valid()
+            await session.keepalive()
         except ContarinaAuthError:
             entry.async_start_reauth(hass)
         except ContarinaConnectionError:
@@ -40,15 +45,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         coordinator.async_update_listeners()
 
     entry.async_on_unload(async_track_time_change(hass, update_day, hour=0, minute=0, second=1))
-    previous_options = dict(entry.options)
-
-    async def options_updated(_hass: HomeAssistant, current_entry: ConfigEntry) -> None:
-        nonlocal previous_options
-        if dict(current_entry.options) != previous_options:
-            previous_options = dict(current_entry.options)
-            await hass.config_entries.async_reload(current_entry.entry_id)
-
-    entry.async_on_unload(entry.add_update_listener(options_updated))
+    # No update listener: options reload via OptionsFlowWithReload and reauth/reconfigure
+    # reload via async_update_reload_and_abort (HA >= 2026.12 forbids mixing them).
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

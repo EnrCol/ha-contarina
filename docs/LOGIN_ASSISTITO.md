@@ -1,8 +1,29 @@
-# Accesso assistito al portale SOL (prototipo)
+# Accesso assistito al portale SOL
+
+## Metodo consigliato: «Riconnetti dal browser» (0.2.4b1)
+
+Da **Impostazioni → Dispositivi e servizi → Contarina SOL → ⋮ → Riconfigura** (oppure dalla notifica di riautenticazione) scegli **Riconnetti dal browser**:
+
+1. Home Assistant apre una pagina di riconnessione. **Solo la prima volta** trascina il pulsante *Invia token a Home Assistant* nella barra dei preferiti.
+2. Clicca **Apri Contarina SOL** e accedi: il browser può compilare le credenziali salvate.
+3. Sulla pagina SOL autenticata clicca il preferito *Invia token a Home Assistant*. Home Assistant verifica il token con SOL, controlla che appartenga allo stesso account e si ricollega. Nessun copia-incolla.
+
+Sicurezza:
+
+- Il preferito contiene **solo l'indirizzo** del tuo Home Assistant, nessun segreto.
+- La riconnessione è autorizzata da un codice casuale monouso (256 bit), legato al singolo flusso avviato in Home Assistant, valido 10 minuti e salvato solo nel browser che l'ha avviata (nella scheda, con ripiego per flusso se usi il preferito in un'altra scheda). Dopo 5 tentativi errati viene annullato.
+- La consegna del token è accettata solo da pagine con la stessa origine di Home Assistant: schema (http/https), host e porta devono coincidere (header `Origin`). Dietro reverse proxy valgono solo le intestazioni `X-Forwarded-*` dei proxy configurati come fidati in Home Assistant (`use_x_forwarded_for`, `trusted_proxies`).
+- L'indirizzo della pagina di riconnessione è quello da cui stai usando Home Assistant (header `HA-Frontend-Base`, come per i login OAuth); in mancanza si usa l'URL configurato in *Impostazioni → Sistema → Rete*.
+- Il token passa dalla pagina SOL a Home Assistant nella parte dell'indirizzo dopo `#`, che non viene inviata in rete; la pagina di Home Assistant lo cancella subito dalla barra degli indirizzi e lo consegna con una richiesta allo stesso indirizzo.
+- Usa Home Assistant in **HTTPS** quando possibile. In HTTP il token viaggia in chiaro sulla rete locale, esattamente come quando lo incolli nel modulo.
+- Il preferito va ricreato se apri Home Assistant da un indirizzo diverso (es. IP locale e URL remoto).
+- Se qualcosa non va, il flusso passa automaticamente al copia-incolla.
+
+## Metodo alternativo: copia-incolla
 
 L'integrazione Home Assistant non acquisisce username/password e non prova a eseguire reCAPTCHA. Il primo JWT si ottiene esclusivamente **dopo un login normale sul sito ufficiale Contarina SOL**.
 
-## Metodo sperimentale: preferito «Copia token Contarina»
+### Preferito «Copia token Contarina»
 
 1. Apri [https://sol.servizicontarina.it/](https://sol.servizicontarina.it/) e accedi normalmente.
 2. Crea un nuovo preferito nel browser e chiamalo **Copia token Contarina**.
@@ -16,7 +37,7 @@ Se il browser impedisce la copia, viene offerto un campo per **copia manuale**. 
 
 ## Esiti ancora da verificare
 
-- Il cookie `accessToken` è indicato dal codice del frontend SOL come non-HttpOnly, **ma l'accesso con `document.cookie` va ancora testato sul browser reale**.
+- Verificato su sessione reale: `accessToken` è non-HttpOnly e leggibile con `document.cookie` dalla pagina SOL.
 - Alcuni browser o estensioni possono bloccare i bookmarklet oppure l'API degli appunti.
 - Il token scade dopo circa **55 minuti** e non può essere rinnovato una volta scaduto. Se il bookmarklet segnala sessione scaduta, riesegui il login su SOL.
 - Non è un login automatico persistente: la funzione è **solo un ausilio per copiare il token** dopo l'autenticazione effettuata dall'utente.
