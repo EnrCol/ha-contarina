@@ -28,7 +28,7 @@
 
 ### Accesso assistito (sperimentale)
 
-**Riconnessione senza copia-incolla (0.2.4b1):** *Riconfigura → Riconnetti dal browser* apre SOL; dopo il login un preferito invia il token direttamente a Home Assistant con un codice monouso. Dettagli in [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md).
+**Collegamento senza copia-incolla (0.2.5b1):** sia al primo collegamento sia nella riconnessione, *Collega/Riconnetti dal browser* apre SOL; dopo il login un preferito invia il token direttamente a Home Assistant. Funziona anche da smartphone o da un altro browser con un codice di abbinamento mostrato da Home Assistant. Se la sessione scade compaiono una notifica con link diretto, l'evento `contarina_session_expired` e, se configurata, una notifica push. Dettagli in [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md).
 
 Per evitare gli strumenti sviluppatore c'è anche un **bookmarklet**: un preferito eseguito *solo sulla pagina SOL già autenticata*, che legge il cookie `accessToken` e lo copia negli appunti senza inviarlo ad altri siti. Prima dell'uso leggi [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md) e il [codice leggibile](tools/contarina_token_bookmarklet.js).
 

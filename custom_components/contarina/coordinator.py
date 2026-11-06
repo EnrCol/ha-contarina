@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from .alerts import async_session_expired
 from .api import ContarinaAuthError, ContarinaConnectionError
 from .auth import ContarinaSession
 from .const import (
@@ -38,6 +39,7 @@ class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         try:
             return await self._load()
         except ContarinaAuthError as exc:
+            async_session_expired(self.hass, self.entry)
             raise ConfigEntryAuthFailed("SOL browser authentication required") from exc
         except (ContarinaConnectionError, ResponseShapeError, ValueError, TypeError) as exc:
             raise UpdateFailed(f"Contarina response could not be loaded: {type(exc).__name__}") from exc
@@ -141,6 +143,7 @@ class ContarinaCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         try:
             rows = await self.session.call("collections", data["calendar_id"], start, end)
         except ContarinaAuthError:
+            async_session_expired(self.hass, self.entry)
             self.entry.async_start_reauth(self.hass)
             return {}
         except (ContarinaConnectionError, ResponseShapeError):

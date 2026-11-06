@@ -10,6 +10,8 @@ CONF_HORIZON = "calendar_horizon_days"
 CONF_POLL_HOURS = "poll_interval_hours"
 CONF_BILL_HOURS = "billing_interval_hours"
 CONF_CONDOS = "include_condominium"
+CONF_NOTIFY = "notify_service"
+EVENT_SESSION_EXPIRED = "contarina_session_expired"
 
 DEFAULT_HORIZON = 60
 DEFAULT_POLL_HOURS = 6

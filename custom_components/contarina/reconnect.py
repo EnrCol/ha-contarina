@@ -57,8 +57,11 @@ class ReconnectStartView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app[KEY_HASS]
-        valid = get_store(hass).is_valid(request.query.get("flow_id", ""), request.query.get("state", ""))
-        return _html(start_page(valid), 200 if valid else 410)
+        store = get_store(hass)
+        flow_id = request.query.get("flow_id", "")
+        valid = store.is_valid(flow_id, request.query.get("state", ""))
+        # The pairing code is shown only to whoever holds the flow's one-time state.
+        return _html(start_page(valid, store.code_for(flow_id) or "" if valid else ""), 200 if valid else 410)
 
 
 class ReconnectReceiveView(HomeAssistantView):
@@ -83,14 +86,22 @@ class ReconnectReceiveView(HomeAssistantView):
         parsed = parse_receive_body(await request.content.read(MAX_BODY_BYTES + 1))
         if parsed is None:
             return _json("bad_request", 400)
-        flow_id, state, token = parsed
         store = get_store(hass)
-        if store.consume(flow_id, state) is None:
-            return _json("expired", 403)
+        if parsed[0] == "code":
+            _, code, token = parsed
+            if store.code_locked():
+                return _json("code_locked", 429)
+            flow_id = store.consume_code(code)
+            if flow_id is None:
+                return _json("code_locked" if store.code_locked() else "bad_code", 429 if store.code_locked() else 403)
+        else:
+            _, flow_id, state, token = parsed
+            if store.consume(flow_id, state) is None:
+                return _json("expired", 403)
         try:
             await hass.config_entries.flow.async_configure(flow_id, {CONF_TOKEN: token})
         except UnknownFlow:
             store.discard(flow_id)
             return _json("expired", 410)
         outcome = store.pop_outcome(flow_id) or "cannot_connect"
-        return _json(outcome, 200 if outcome == "ok" else 400)
+        return _json(outcome, 200 if outcome.startswith("ok") else 400)

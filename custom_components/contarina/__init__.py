@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change, async_track_time_interval
+from .alerts import async_session_expired, async_session_restored
 from .api import ContarinaApi, ContarinaAuthError, ContarinaConnectionError
 from .auth import ContarinaSession
 from .const import TOKEN_REFRESH_INTERVAL
@@ -24,17 +25,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # validity from the first minute, not just "more than the margin".
         await session.keepalive()
     except ContarinaAuthError as exc:
+        async_session_expired(hass, entry)
         raise ConfigEntryAuthFailed("Contarina browser login required") from exc
     except ContarinaConnectionError as exc:
         raise ConfigEntryNotReady("Contarina temporarily unavailable") from exc
     coordinator = ContarinaCoordinator(hass, entry, session)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    async_session_restored(hass, entry)
 
     async def refresh_token(_now) -> None:
         try:
             await session.keepalive()
         except ContarinaAuthError:
+            async_session_expired(hass, entry)
             entry.async_start_reauth(hass)
         except ContarinaConnectionError:
             pass

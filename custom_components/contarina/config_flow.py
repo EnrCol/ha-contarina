@@ -1,25 +1,33 @@
-"""UI setup: browser JWT (pasted or delivered by the reconnect bookmarklet); no password or automated login."""
+"""UI setup: browser JWT (delivered by the bookmarklet or pasted); no password or automated login.
+
+The same browser hand-off is used for the first setup, reauth and reconfigure:
+- same browser: one-time state bound to the tab that opened the HA page;
+- other browser/device (e.g. smartphone): short one-time pairing code shown in HA.
+"""
 from __future__ import annotations
+
 import re
 import time
 from datetime import date
 from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components import http
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
 from homeassistant.helpers import selector
-from homeassistant.components import http
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.network import NoURLAvailableError, get_url
+
 from .api import ContarinaApi, ContarinaAuthError, ContarinaConnectionError
 from .const import (
     CONF_ACCOUNT, CONF_BILL_HOURS, CONF_CONDOS, CONF_CONTRACTS, CONF_HORIZON,
-    CONF_POLL_HOURS, CONF_TOKEN, DEFAULT_BILL_HOURS, DEFAULT_HORIZON,
+    CONF_NOTIFY, CONF_POLL_HOURS, CONF_TOKEN, DEFAULT_BILL_HOURS, DEFAULT_HORIZON,
     DEFAULT_POLL_HOURS, DOMAIN,
 )
 from .models import ResponseShapeError, is_active, jwt_claims
-from .pairing import START_PATH
+from .pairing import START_PATH, format_code
 from .reconnect import async_register_views, get_store
 
 HEADER_FRONTEND_BASE = "HA-Frontend-Base"  # same source HA uses for OAuth2/Plex external steps
@@ -38,16 +46,19 @@ def _frontend_base(hass) -> str:
 def _secret_selector():
     return selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 
+
 class ContarinaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
     def __init__(self) -> None:
         self._token: str | None = None
         self._account: str | None = None
         self._contracts: list[dict[str, Any]] = []
-        self._target: config_entries.ConfigEntry | None = None
+        self._target: config_entries.ConfigEntry | None = None  # None = first setup
         self._success_reason = "reauth_successful"
         self._browser_error: str | None = None
 
+    # ------------------------------------------------------------- token checks
     async def _check_token(self, token: str) -> tuple[str, list[dict[str, Any]]]:
         try:
             claims = jwt_claims(token)
@@ -64,28 +75,37 @@ class ContarinaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             raise ContarinaConnectionError("SOL account has no contracts")
         return account, contracts
 
+    async def _accept_token(self, token: str) -> str | None:
+        """Validate a token for the current mode; on success keep it. Returns an error key."""
+        try:
+            account, contracts = await self._check_token(token)
+        except ContarinaAuthError:
+            return "invalid_auth"
+        except ContarinaConnectionError:
+            return "cannot_connect"
+        if self._target is not None:
+            if account != self._target.unique_id:
+                return "wrong_account"
+        elif self.hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, account):
+            return "already_configured"
+        self._token, self._account, self._contracts = token, account, contracts
+        return None
+
+    # ------------------------------------------------------------- first setup
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        errors = {}
-        if user_input is not None:
-            token = str(user_input[CONF_TOKEN]).strip()
-            try:
-                self._account, self._contracts = await self._check_token(token)
-                self._token = token
-                await self.async_set_unique_id(self._account)
-                self._abort_if_unique_id_configured()
-                return await self.async_step_contracts()
-            except ContarinaAuthError:
-                errors["base"] = "invalid_auth"
-            except ContarinaConnectionError:
-                errors["base"] = "cannot_connect"
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({vol.Required(CONF_TOKEN): _secret_selector()}),
-            errors=errors,
-        )
+        return self.async_show_menu(step_id="user", menu_options=["setup_browser", "setup_paste"])
+
+    async def async_step_setup_browser(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return await self._browser_step("setup_browser", "setup_paste", user_input)
+
+    async def async_step_setup_paste(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return await self._paste_step("setup_paste", user_input)
 
     async def async_step_contracts(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors = {}
+        if self._account:
+            await self.async_set_unique_id(self._account)
+            self._abort_if_unique_id_configured()
         refs = {str(x.get("reference_code")) for x in self._contracts if x.get("reference_code")}
         if user_input is not None:
             chosen = [str(x) for x in user_input[CONF_CONTRACTS]]
@@ -118,7 +138,7 @@ class ContarinaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    # ------------------------------------------------------------- reauth / reconnect
+    # ------------------------------------------------------------- reauth / reconfigure
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         self._target = self._get_reauth_entry()
         self._success_reason = "reauth_successful"
@@ -135,68 +155,64 @@ class ContarinaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm", menu_options=["reconnect_browser", "reconnect_paste"],
         )
 
-    async def _validate_for_target(self, token: str) -> str | None:
-        """Return an error key, or None if the token is valid for the configured account."""
-        assert self._target is not None
-        try:
-            account, _ = await self._check_token(token)
-        except ContarinaAuthError:
-            return "invalid_auth"
-        except ContarinaConnectionError:
-            return "cannot_connect"
-        if account != self._target.unique_id:
-            return "wrong_account"
-        return None
-
     async def async_step_reconnect_browser(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """External step: HA opens the start page; the receive view feeds the token back here."""
+        return await self._browser_step("reconnect_browser", "reconnect_paste", user_input)
+
+    async def async_step_reconnect_paste(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        return await self._paste_step("reconnect_paste", user_input)
+
+    async def async_step_reconnect_done(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         assert self._target is not None
+        return self.async_update_reload_and_abort(self._target, reason=self._success_reason)
+
+    # ------------------------------------------------------------- shared steps
+    async def _browser_step(self, step_id: str, paste_step: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
+        """External step: HA opens the start page; the receive view feeds the token back here."""
         store = get_store(self.hass)
         if user_input is None:
             try:
                 base = _frontend_base(self.hass)
             except NoURLAvailableError:
                 self._browser_error = "no_url"
-                return await self.async_step_reconnect_paste()
+                return await getattr(self, f"async_step_{paste_step}")()
             async_register_views(self.hass)
-            state = store.create(self.flow_id, self._target.entry_id)
+            state = store.create(self.flow_id, self._target.entry_id if self._target else "")
             return self.async_external_step(
-                step_id="reconnect_browser",
+                step_id=step_id,
                 url=f"{base}{START_PATH}?flow_id={self.flow_id}&state={state}",
+                description_placeholders={"code": format_code(store.code_for(self.flow_id) or "")},
             )
-        token = str(user_input.get(CONF_TOKEN, "")).strip()
-        error = await self._validate_for_target(token)
-        store.set_outcome(self.flow_id, error or "ok")
+        error = await self._accept_token(str(user_input.get(CONF_TOKEN, "")).strip())
         if error:
+            store.set_outcome(self.flow_id, error)
             self._browser_error = error
-            return self.async_external_step_done(next_step_id="reconnect_paste")
+            return self.async_external_step_done(next_step_id=paste_step)
+        if self._target is None:
+            store.set_outcome(self.flow_id, "ok_setup")
+            return self.async_external_step_done(next_step_id="contracts")
+        store.set_outcome(self.flow_id, "ok")
         # Persist now (no reload: reloading here would abort this very reauth flow).
-        # The token is saved even if the HA dialog was closed; reload happens in the next step.
         self.hass.config_entries.async_update_entry(
-            self._target, data={**self._target.data, CONF_TOKEN: token},
+            self._target, data={**self._target.data, CONF_TOKEN: self._token},
         )
         return self.async_external_step_done(next_step_id="reconnect_done")
 
-    async def async_step_reconnect_done(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        assert self._target is not None
-        return self.async_update_reload_and_abort(self._target, reason=self._success_reason)
-
-    async def async_step_reconnect_paste(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        assert self._target is not None
+    async def _paste_step(self, step_id: str, user_input: dict[str, Any] | None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if self._browser_error:
             errors["base"] = self._browser_error
             self._browser_error = None
         if user_input is not None:
-            token = str(user_input[CONF_TOKEN]).strip()
-            error = await self._validate_for_target(token)
+            error = await self._accept_token(str(user_input[CONF_TOKEN]).strip())
             if error is None:
+                if self._target is None:
+                    return await self.async_step_contracts()
                 return self.async_update_reload_and_abort(
-                    self._target, data_updates={CONF_TOKEN: token}, reason=self._success_reason,
+                    self._target, data_updates={CONF_TOKEN: self._token}, reason=self._success_reason,
                 )
             errors["base"] = error
         return self.async_show_form(
-            step_id="reconnect_paste",
+            step_id=step_id,
             data_schema=vol.Schema({vol.Required(CONF_TOKEN): _secret_selector()}),
             errors=errors,
         )
@@ -211,13 +227,20 @@ class ContarinaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> ContarinaOptionsFlow:
         return ContarinaOptionsFlow()
 
+
 class ContarinaOptionsFlow(config_entries.OptionsFlowWithReload):
     """Options change -> automatic single reload (no update listener)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
+            if user_input.get(CONF_NOTIFY) in (None, "", "none"):
+                user_input = {**user_input, CONF_NOTIFY: ""}
             return self.async_create_entry(title="", data=user_input)
         current = self.config_entry.options
+        notify = sorted(self.hass.services.async_services_for_domain("notify"))
+        notify_options = [selector.SelectOptionDict(value="none", label="—")] + [
+            selector.SelectOptionDict(value=name, label=f"notify.{name}") for name in notify
+        ]
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
@@ -228,5 +251,8 @@ class ContarinaOptionsFlow(config_entries.OptionsFlowWithReload):
                 vol.Required(CONF_BILL_HOURS, default=current.get(CONF_BILL_HOURS, DEFAULT_BILL_HOURS)):
                     vol.All(vol.Coerce(int), vol.Range(min=6, max=48)),
                 vol.Required(CONF_CONDOS, default=current.get(CONF_CONDOS, False)): bool,
+                vol.Optional(CONF_NOTIFY, default=current.get(CONF_NOTIFY) or "none"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=notify_options, mode=selector.SelectSelectorMode.DROPDOWN),
+                ),
             }),
         )

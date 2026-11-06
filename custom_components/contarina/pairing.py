@@ -38,6 +38,15 @@ FLOW_ID_RE = re.compile(r"[A-Za-z0-9]{16,64}")
 STATE_RE = re.compile(r"[A-Za-z0-9_-]{40,64}")
 JWT_RE = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 
+# Pairing code for another browser/device (e.g. phone): shown only in the authenticated HA UI.
+# 8 symbols from 31 unambiguous characters (~39.6 bits), single use, 10 min, plus a global limit
+# of wrong attempts across all flows that makes guessing infeasible.
+CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+CODE_LENGTH = 8
+CODE_RE = re.compile(rf"[{CODE_ALPHABET}]{{{CODE_LENGTH}}}")
+MAX_CODE_FAILURES = 10
+CODE_FAILURE_WINDOW_SECONDS = 600
+
 SECURITY_HEADERS = {
     "Cache-Control": "no-store",
     "Pragma": "no-cache",
@@ -56,6 +65,7 @@ class _Pending:
     state: str
     entry_id: str
     expires: float
+    code: str = ""
     bad_attempts: int = 0
     outcome: str | None = None
 
@@ -66,6 +76,7 @@ class PendingStore:
 
     clock: Callable[[], float] = time.monotonic
     _items: dict[str, _Pending] = field(default_factory=dict)
+    _code_failures: list[float] = field(default_factory=list)
 
     def _purge(self) -> None:
         now = self.clock()
@@ -77,8 +88,41 @@ class PendingStore:
             raise ValueError("invalid flow id")
         self._purge()
         state = secrets.token_urlsafe(32)
-        self._items[flow_id] = _Pending(state, entry_id, self.clock() + PENDING_TTL_SECONDS)
+        used = {item.code for item in self._items.values()}
+        code = ""
+        while not code or code in used:
+            code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+        self._items[flow_id] = _Pending(state, entry_id, self.clock() + PENDING_TTL_SECONDS, code)
         return state
+
+    def code_for(self, flow_id: str) -> str | None:
+        self._purge()
+        item = self._items.get(flow_id)
+        return item.code if item and item.state else None
+
+    def code_locked(self) -> bool:
+        now = self.clock()
+        self._code_failures = [t for t in self._code_failures if now - t < CODE_FAILURE_WINDOW_SECONDS]
+        return len(self._code_failures) >= MAX_CODE_FAILURES
+
+    def consume_code(self, code: str) -> str | None:
+        """Single use: returns the flow_id for a valid pairing code and invalidates it."""
+        self._purge()
+        if self.code_locked():
+            return None
+        code = normalize_code(code)
+        match = None
+        if code is not None:
+            for flow_id, item in self._items.items():
+                if item.state and item.code and hmac.compare_digest(item.code, code):
+                    match = flow_id
+        if match is None:
+            self._code_failures.append(self.clock())
+            return None
+        item = self._items[match]
+        item.state = ""
+        item.code = ""
+        return match
 
     def _match(self, flow_id: str, state: str) -> _Pending | None:
         self._purge()
@@ -105,6 +149,7 @@ class PendingStore:
             return None
         entry_id = item.entry_id
         item.state = ""  # consumed; entry kept only to carry the outcome
+        item.code = ""
         return entry_id
 
     def set_outcome(self, flow_id: str, outcome: str) -> None:
@@ -156,8 +201,23 @@ def origin_allowed(origin: str | None, request_scheme: str, request_host: str) -
     return got is not None and got == expected
 
 
+def normalize_code(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    code = re.sub(r"[\s-]", "", value).upper()
+    return code if CODE_RE.fullmatch(code) else None
+
+
+def format_code(code: str) -> str:
+    return f"{code[:4]}-{code[4:]}" if len(code) == CODE_LENGTH else code
+
+
 def parse_receive_body(raw: bytes) -> tuple[str, str, str] | None:
-    """Validate the POST body shape; never echo its content."""
+    """Validate the POST body shape; never echo its content.
+
+    Returns ("state", flow_id, state, token) or ("code", code, token) as a tuple whose first
+    item tells which binding the browser used.
+    """
     if not raw or len(raw) > MAX_BODY_BYTES:
         return None
     try:
@@ -166,12 +226,18 @@ def parse_receive_body(raw: bytes) -> tuple[str, str, str] | None:
         return None
     if not isinstance(data, dict):
         return None
-    flow_id, state, token = data.get("flow_id"), data.get("state"), data.get("token")
-    if not all(isinstance(x, str) for x in (flow_id, state, token)):
+    token = data.get("token")
+    if not isinstance(token, str) or not JWT_RE.fullmatch(token):
         return None
-    if not (FLOW_ID_RE.fullmatch(flow_id) and STATE_RE.fullmatch(state) and JWT_RE.fullmatch(token)):
+    if "code" in data:
+        code = normalize_code(data.get("code"))
+        return ("code", code, token) if code else None
+    flow_id, state = data.get("flow_id"), data.get("state")
+    if not all(isinstance(x, str) for x in (flow_id, state)):
         return None
-    return flow_id, state, token
+    if not (FLOW_ID_RE.fullmatch(flow_id) and STATE_RE.fullmatch(state)):
+        return None
+    return ("state", flow_id, state, token)
 
 
 # Bookmarklet: runs on the authenticated SOL page. __HA_ORIGIN__ is replaced in the
@@ -202,27 +268,42 @@ _PAGE_STYLE = (
     "line-height:1.5;color:#222}a.bm{display:inline-block;padding:.5rem 1rem;border:2px dashed #1976d2;"
     "border-radius:8px;text-decoration:none;font-weight:600}a.go{display:inline-block;padding:.6rem 1.2rem;"
     "background:#1976d2;color:#fff;border-radius:8px;text-decoration:none}.err{color:#b00020}"
-    ".ok{color:#2e7d32}code{background:#eee;padding:0 .2rem}"
+    ".ok{color:#2e7d32}code{background:#eee;padding:0 .2rem}.code b{font-size:1.3rem;letter-spacing:.15rem}"
+    "button{font:inherit;padding:.4rem .8rem;border-radius:8px;border:1px solid #1976d2;background:#fff}"
+    "input{font:inherit;font-size:1.3rem;letter-spacing:.15rem;width:9.5rem;padding:.3rem;text-transform:uppercase}"
 )
 
 
-def start_page(valid: bool) -> str:
+def start_page(valid: bool, code: str = "") -> str:
     if not valid:
         return _page("Contarina SOL", "<p class='err'>Link di riconnessione scaduto o già usato. "
-                     "Riavvia <b>Riconnetti</b> da Home Assistant.</p>", "")
+                     "Riavvia la procedura da Home Assistant.</p>", "")
+    shown = format_code(code) if CODE_RE.fullmatch(code or "") else ""
     body = f"""
-<h2>Riconnetti Contarina SOL</h2>
+<h2>Collega Contarina SOL</h2>
 <ol>
-<li><b>Solo la prima volta</b>: trascina questo pulsante nella barra dei preferiti
-(non cliccarlo qui): <a class="bm" id="bm" href="#">Invia token a Home Assistant</a><br>
+<li><b>Solo la prima volta</b>, crea il preferito <b>Invia token a Home Assistant</b>:
+<ul>
+<li><b>Computer</b>: trascina questo pulsante nella barra dei preferiti (non cliccarlo qui):
+<a class="bm" id="bm" href="#">Invia token a Home Assistant</a></li>
+<li><b>Smartphone</b>: <button id="copy" type="button">Copia codice del preferito</button>
+<details><summary>Come crearlo sul telefono</summary>
+<p><b>iPhone (Safari)</b>: aggiungi ai preferiti una pagina qualsiasi, poi in Preferiti → Modifica
+sostituisci l'indirizzo con il codice copiato e chiamalo «Invia token a Home Assistant».</p>
+<p><b>Android (Chrome)</b>: aggiungi ai preferiti una pagina qualsiasi, modificalo, incolla il codice
+come URL e chiamalo «Invia token a Home Assistant». Per usarlo, su SOL scrivi
+«Invia token» nella barra degli indirizzi e tocca il preferito suggerito.</p>
+</details></li>
+</ul>
 <small>Il preferito contiene solo l'indirizzo di questo Home Assistant, nessun segreto.
 Va ricreato se apri Home Assistant da un indirizzo diverso.</small></li>
 <li>Apri Contarina SOL e accedi (il browser può compilare le credenziali salvate).</li>
-<li>Sulla pagina di SOL, clicca il preferito <b>Invia token a Home Assistant</b>.</li>
+<li>Sulla pagina di SOL usa il preferito <b>Invia token a Home Assistant</b>.</li>
 </ol>
 <p><a class="go" href="{SOL_URL}" rel="noreferrer" target="_self">Apri Contarina SOL</a></p>
-<p><small>Il collegamento vale 10 minuti, solo in questo browser e una sola volta.
-Apri SOL da questo pulsante, nella stessa scheda.</small></p>
+<p><small>Il collegamento vale 10 minuti e una sola volta. Apri SOL da questo pulsante, nella stessa scheda.</small></p>
+<p class="code">Su un altro browser o dispositivo (es. login a SOL dal telefono) ti verrà chiesto il
+codice di abbinamento: <b id="pair">{shown}</b></p>
 """
     script = f"""
 (function(){{
@@ -235,19 +316,27 @@ Apri SOL da questo pulsante, nella stessa scheda.</small></p>
     var m={{}};try{{m=JSON.parse(localStorage.getItem({json.dumps(STORAGE_KEY)})||'{{}}')||{{}};}}catch(e){{m={{}};}}
     for(var k in m){{if(!m[k]||Date.now()-m[k].ts>{PENDING_TTL_SECONDS * 1000}){{delete m[k];}}}}
     m[flow]=rec;localStorage.setItem({json.dumps(STORAGE_KEY)},JSON.stringify(m));
-  }}catch(e){{document.body.insertAdjacentHTML('beforeend','<p class="err">Il browser blocca la memoria locale: usa il copia-incolla.</p>');}}
+  }}catch(e){{document.body.insertAdjacentHTML('beforeend','<p class="err">Il browser blocca la memoria locale: usa il codice di abbinamento o il copia-incolla.</p>');}}
   var tpl={json.dumps(BOOKMARKLET_TEMPLATE)};
-  var code=tpl.replace('__HA_ORIGIN__',JSON.stringify(location.origin));
+  var code='javascript:'+encodeURIComponent(tpl.replace('__HA_ORIGIN__',JSON.stringify(location.origin)));
   var bm=document.getElementById('bm');
-  bm.setAttribute('href','javascript:'+encodeURIComponent(code));
+  bm.setAttribute('href',code);
   bm.addEventListener('click',function(ev){{ev.preventDefault();alert('Trascina il pulsante nella barra dei preferiti.');}});
+  document.getElementById('copy').addEventListener('click',function(){{
+    var done=function(){{document.getElementById('copy').textContent='Codice copiato';}};
+    if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(code).then(done,function(){{prompt('Copia il codice del preferito:',code);}});}}
+    else{{prompt('Copia il codice del preferito:',code);}}
+  }});
 }})();
 """
-    return _page("Riconnetti Contarina SOL", body, script)
+    return _page("Collega Contarina SOL", body, script)
 
 
 def receive_page() -> str:
-    body = "<h2>Contarina SOL</h2><p id='msg'>Invio del token a Home Assistant…</p>"
+    body = ("<h2>Contarina SOL</h2><p id='msg'>Invio del token a Home Assistant…</p>"
+            "<form id='codeform' hidden autocomplete='off'><input id='code' inputmode='text' "
+            "autocapitalize='characters' spellcheck='false' maxlength='9' placeholder='XXXX-XXXX' "
+            "aria-label='Codice di abbinamento' required> <button type='submit'>Invia</button></form>")
     script = f"""
 (function(){{
   var msg=document.getElementById('msg');
@@ -268,16 +357,24 @@ def receive_page() -> str:
   if(pending){{delete map[pending.flow_id];}}
   try{{if(Object.keys(map).length){{localStorage.setItem(KEY,JSON.stringify(map));}}else{{localStorage.removeItem(KEY);}}}}catch(e){{}}
   if(!token){{show('Nessun token ricevuto. Usa il preferito sulla pagina di SOL dopo il login.','err');return;}}
-  if(!pending){{
-    token='';show('Nessuna riconnessione attiva in questo browser per questo indirizzo di Home Assistant. Avvia Riconnetti dalle impostazioni dell\\'integrazione.','err');return;}}
-  fetch({json.dumps(RECEIVE_PATH)},{{method:'POST',credentials:'same-origin',referrerPolicy:'no-referrer',cache:'no-store',
-    headers:{{'Content-Type':'application/json'}},
-    body:JSON.stringify({{flow_id:pending.flow_id,state:pending.state,token:token}})}})
-  .then(function(r){{return r.json().catch(function(){{return {{}};}}).then(function(j){{return [r.status,j];}});}})
-  .then(function(x){{token='';
-    if(x[0]===200&&x[1].result==='ok'){{show('Contarina ricollegata. Puoi chiudere questa scheda e tornare a Home Assistant.','ok');}}
-    else{{show(x[1].message||'Riconnessione non riuscita. Riprova da Home Assistant oppure usa il copia-incolla.','err');}}}})
-  .catch(function(){{token='';show('Home Assistant non raggiungibile da questo browser.','err');}});
+  function send(payload){{
+    payload.token=token;
+    fetch({json.dumps(RECEIVE_PATH)},{{method:'POST',credentials:'same-origin',referrerPolicy:'no-referrer',cache:'no-store',
+      headers:{{'Content-Type':'application/json'}},body:JSON.stringify(payload)}})
+    .then(function(r){{return r.json().catch(function(){{return {{}};}}).then(function(j){{return [r.status,j];}});}})
+    .then(function(x){{
+      if(x[0]===200){{token='';form.hidden=true;show(x[1].message||'Fatto. Torna a Home Assistant.','ok');}}
+      else if(payload.code&&x[1].result==='bad_code'){{show(x[1].message,'err');}}
+      else{{token='';form.hidden=true;show(x[1].message||'Collegamento non riuscito. Riprova da Home Assistant oppure usa il copia-incolla.','err');}}}})
+    .catch(function(){{show('Home Assistant non raggiungibile da questo browser.','err');}});
+  }}
+  var form=document.getElementById('codeform');
+  if(pending){{send({{flow_id:pending.flow_id,state:pending.state}});return;}}
+  // Other browser/device: ask for the pairing code shown in Home Assistant.
+  show('Inserisci il codice di abbinamento mostrato in Home Assistant.','');
+  form.hidden=false;
+  form.addEventListener('submit',function(ev){{ev.preventDefault();
+    send({{code:document.getElementById('code').value}});}});
 }})();
 """
     return _page("Contarina SOL", body, script)
@@ -294,7 +391,11 @@ def _page(title: str, body: str, script: str) -> str:
 
 
 OUTCOME_MESSAGES = {
-    "ok": "Contarina ricollegata.",
+    "ok": "Contarina ricollegata. Puoi chiudere questa scheda e tornare a Home Assistant.",
+    "ok_setup": "Token ricevuto. Torna a Home Assistant per scegliere le utenze.",
+    "already_configured": "Questo account SOL è già configurato in Home Assistant.",
+    "bad_code": "Codice non valido o scaduto. Controlla il codice mostrato in Home Assistant.",
+    "code_locked": "Troppi codici errati: attendi qualche minuto e riavvia la procedura da Home Assistant.",
     "invalid_auth": "Token SOL non valido o scaduto: rifai il login su SOL e riprova.",
     "wrong_account": "Il token appartiene a un altro account SOL.",
     "cannot_connect": "Contarina SOL non raggiungibile: riprova tra poco.",

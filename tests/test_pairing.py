@@ -80,6 +80,54 @@ class PendingStoreTest(unittest.TestCase):
         self.assertFalse(self.store.is_valid(FLOW, state))
 
 
+class CodeTest(unittest.TestCase):
+    def setUp(self):
+        self.clock = Clock()
+        self.store = pairing.PendingStore(clock=self.clock)
+
+    def test_code_shape_and_single_use(self):
+        state = self.store.create(FLOW, "e1")
+        code = self.store.code_for(FLOW)
+        self.assertRegex(code, rf"^[{pairing.CODE_ALPHABET}]{{8}}$")
+        self.assertEqual(pairing.format_code(code), code[:4] + "-" + code[4:])
+        self.assertEqual(self.store.consume_code(pairing.format_code(code).lower()), FLOW)
+        self.assertIsNone(self.store.consume_code(code))       # code used
+        self.assertIsNone(self.store.consume(FLOW, state))     # state invalidated too
+        self.assertIsNone(self.store.code_for(FLOW))
+
+    def test_state_use_invalidates_code(self):
+        state = self.store.create(FLOW, "e1")
+        code = self.store.code_for(FLOW)
+        self.store.consume(FLOW, state)
+        self.assertIsNone(self.store.consume_code(code))
+
+    def test_code_expires(self):
+        self.store.create(FLOW, "e1")
+        code = self.store.code_for(FLOW)
+        self.clock.t += pairing.PENDING_TTL_SECONDS + 1
+        self.assertIsNone(self.store.consume_code(code))
+
+    def test_global_lockout_against_guessing(self):
+        self.store.create(FLOW, "e1")
+        code = self.store.code_for(FLOW)
+        wrong = "".join("A" if c != "A" else "B" for c in code)
+        for _ in range(pairing.MAX_CODE_FAILURES):
+            self.assertIsNone(self.store.consume_code(wrong))
+        self.assertTrue(self.store.code_locked())
+        self.assertIsNone(self.store.consume_code(code))       # even the right code while locked
+        self.clock.t += pairing.CODE_FAILURE_WINDOW_SECONDS + 1
+        self.store.create(FLOW, "e1")
+        self.assertEqual(self.store.consume_code(self.store.code_for(FLOW)), FLOW)
+
+    def test_codes_unique_across_flows(self):
+        codes = set()
+        for i in range(200):
+            fid = f"{i:032x}"
+            self.store.create(fid, "e")
+            codes.add(self.store.code_for(fid))
+        self.assertEqual(len(codes), 200)
+
+
 class BodyTest(unittest.TestCase):
     def body(self, **kw):
         data = {"flow_id": FLOW, "state": "s" * 43, "token": JWT}
@@ -87,7 +135,14 @@ class BodyTest(unittest.TestCase):
         return json.dumps(data).encode()
 
     def test_valid(self):
-        self.assertEqual(pairing.parse_receive_body(self.body()), (FLOW, "s" * 43, JWT))
+        self.assertEqual(pairing.parse_receive_body(self.body()), ("state", FLOW, "s" * 43, JWT))
+        raw = json.dumps({"code": "abcd-efgh", "token": JWT}).encode()
+        self.assertEqual(pairing.parse_receive_body(raw), ("code", "ABCDEFGH", JWT))
+
+    def test_rejects_bad_code(self):
+        for code in ("ABCD-EFG", "ABCD-EFG0", "ABCD-EFGI", 12345678, None, "ABCDEFGH1"):
+            raw = json.dumps({"code": code, "token": JWT}).encode()
+            self.assertIsNone(pairing.parse_receive_body(raw), code)
 
     def test_rejects(self):
         for raw in (b"", b"not json", b"[]", self.body(token="a.b"), self.body(token=1),
@@ -138,7 +193,10 @@ class PagesTest(unittest.TestCase):
             self.assertNotIn(forbidden, tpl)
 
     def test_pages_do_not_embed_request_data(self):
-        page = pairing.start_page(True)
+        page = pairing.start_page(True, "ABCDEFGH")
+        self.assertIn("ABCD-EFGH", page)
+        self.assertIn("Copia codice del preferito", page)
+        self.assertNotIn("<script>alert", pairing.start_page(True, "<script>alert(1)</script>"))
         self.assertIn("history.replaceState", page)
         self.assertIn(pairing.STORAGE_KEY, page)
         self.assertNotIn("</script><script", page)
@@ -149,6 +207,7 @@ class PagesTest(unittest.TestCase):
         self.assertIn("sessionStorage", receive)
         self.assertIn("sessionStorage", page)
         self.assertIn("removeItem", receive)
+        self.assertIn("codeform", receive)
 
     def test_security_headers(self):
         h = pairing.SECURITY_HEADERS

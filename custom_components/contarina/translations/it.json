@@ -3,9 +3,10 @@
     "step": {
       "user": {
         "title": "Collega Contarina SOL",
-        "description": "Accedi allo Sportello Online Contarina dal browser e inserisci il token JWT accessToken. Non inserire la password del portale. Il token scade dopo 55 minuti se non viene rinnovato.",
-        "data": {
-          "access_token": "Token di sessione del browser (accessToken)"
+        "description": "Il login avviene sempre sul sito ufficiale di Contarina: Home Assistant non conosce la tua password e non la salva.",
+        "menu_options": {
+          "setup_browser": "Collega dal browser (consigliato, anche da smartphone)",
+          "setup_paste": "Incolla il token manualmente"
         }
       },
       "contracts": {
@@ -32,7 +33,18 @@
       },
       "reconnect_browser": {
         "title": "Riconnessione dal browser",
-        "description": "Clicca **Apri sito web**: si apre la pagina di riconnessione. Accedi a Contarina SOL e clicca il preferito «Invia token a Home Assistant». Questa finestra si aggiornerà da sola."
+        "description": "Clicca **Apri sito web**, accedi a Contarina SOL e usa il preferito «Invia token a Home Assistant». Questa finestra si aggiornerà da sola.\n\nSe accedi a SOL da un altro browser o dal telefono, inserisci questo codice di abbinamento: **{code}** (valido 10 minuti, una sola volta)."
+      },
+      "setup_browser": {
+        "title": "Collegamento dal browser",
+        "description": "Clicca **Apri sito web**, accedi a Contarina SOL e usa il preferito «Invia token a Home Assistant». Questa finestra si aggiornerà da sola.\n\nSe accedi a SOL da un altro browser o dal telefono, inserisci questo codice di abbinamento: **{code}** (valido 10 minuti, una sola volta)."
+      },
+      "setup_paste": {
+        "title": "Incolla il token SOL",
+        "description": "Accedi allo Sportello Online Contarina, copia il token con il preferito «Copia token Contarina» e incollalo qui entro pochi minuti. Non inserire la password del portale.",
+        "data": {
+          "access_token": "Token di sessione del browser (accessToken)"
+        }
       }
     },
     "error": {
@@ -40,7 +52,8 @@
       "cannot_connect": "Impossibile collegarsi a Contarina SOL",
       "invalid_contracts": "Seleziona almeno un'utenza valida",
       "wrong_account": "Il token appartiene a un altro account SOL",
-      "no_url": "Indirizzo di Home Assistant non determinabile: usa il copia-incolla oppure imposta l'URL in Impostazioni → Sistema → Rete"
+      "no_url": "Indirizzo di Home Assistant non determinabile: usa il copia-incolla oppure imposta l'URL in Impostazioni → Sistema → Rete",
+      "already_configured": "Questo account SOL è già configurato"
     },
     "abort": {
       "already_configured": "Account già configurato",
@@ -57,7 +70,8 @@
           "calendar_horizon_days": "Giorni calendario da precaricare",
           "poll_interval_hours": "Intervallo aggiornamento dati (ore)",
           "billing_interval_hours": "Intervallo aggiornamento fatture (ore)",
-          "include_condominium": "Includi contenitori condominiali"
+          "include_condominium": "Includi contenitori condominiali",
+          "notify_service": "Notifica push quando la sessione scade (opzionale)"
         }
       }
     }
