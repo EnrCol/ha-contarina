@@ -1,0 +1,63 @@
+name: Publish vetted Contarina beta
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-beta.yml
+
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install aiohttp
+      - run: python -m compileall -q custom_components tests
+      - run: python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/bookmarklet.test.mjs
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+  release:
+    needs: [unit, hassfest, hacs]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Determine release tag from manifest
+        id: version
+        run: |
+          VERSION=$(python -c 'import json; print(json.load(open("custom_components/contarina/manifest.json"))["version"])')
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Publish immutable beta release (if absent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists: skip"
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "Contarina SOL $TAG (beta)" \
+            --notes-file RELEASE_NOTES_0.2.3b1.md \
+            --prerelease

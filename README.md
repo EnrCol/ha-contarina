@@ -1,83 +1,74 @@
-# Contarina SOL — Home Assistant integration (prototype 0.2.2b1)
+# Contarina SOL per Home Assistant
 
-**Unofficial community integration. Not affiliated with Contarina S.p.A.**
+![Icona Contarina SOL (integrazione non ufficiale)](custom_components/contarina/brand/icon.png)
 
-> Development beta. Do not replace a working waste collection setup until this integration has been validated on an isolated Home Assistant installation.
+**Integrazione indipendente e non ufficiale** per consultare calendario rifiuti, contenitori, svuotamenti e fatture dello Sportello Online Contarina (SOL). Non è sviluppata né approvata da Contarina S.p.A.
 
-## Features
+> **Beta 0.2.3b1.** Testata con Home Assistant 2026.11 su un'utenza domestica reale. Il calendario è stato confrontato con l'integrazione ICS esistente (25 date su 25 coincidenti nel periodo verificato). Mancano test estesi su utenze non domestiche, condominiali e durata massima della sessione.
 
-- Native read-only Contarina SOL integration. No dependency on Waste Collection Schedule or other custom integrations.
-- Multiple contracts per SOL account, automatically discovered and selectable during configuration.
-- Waste collection calendar and today/tomorrow/next collection sensors, fetched from the authenticated SOL API.
-- Bin inventory and annual recorded emptying counts, with date and material attributes.
-- Latest invoice, invoice status, open invoice count, and outstanding-balance indicator.
-- Automatic sliding JWT refresh checked every 15 minutes, with the renewed token stored privately by Home Assistant.
-- Italian and English setup translations; aggregate-only diagnostics.
+## Funzionalità
 
-## Authentication and limitations
+- Configurazione grafica con selezione di uno o più contratti SOL.
+- Calendario Home Assistant nativo, rifiuti di oggi/domani e prossima raccolta.
+- Contenitori, svuotamenti annui e ultimo svuotamento registrato.
+- Stima del **minimo annuale addebitato per il Secco** su utenze domestiche con un solo contenitore da 120 L: componenti del nucleo + 1; dati negli attributi del sensore svuotamenti esistente. La stima non significa prese gratuite e va confrontata con la composizione familiare presa a riferimento da Contarina.
+- Fatture, scadenze, classificazioni SOL, storico nell'attributo `storico_fatture` di *Fatture disponibili* e totale fatturato per anno. **L'importo della fattura non è un residuo da pagare verificato**.
+- JWT rinnovato automaticamente ogni 15 minuti e salvato nella configurazione protetta di Home Assistant.
+- Operazioni HTTP **solo GET**; nessuna modifica ai contratti o ai pagamenti.
 
-SOL uses a browser login with reCAPTCHA v3. **Username/password automatic login is not supported.** The beta setup requires a fresh accessToken JWT from your own authenticated SOL browser session, entered in the private Home Assistant integration setup UI. **Never share this token in chat, issues or public files.** It is a bearer credential that contains personal information.
+## Installazione da Marketplace
 
-Access tokens expire after 55 minutes. The integration refreshes them while Home Assistant is running; an interruption beyond the remaining JWT lifetime requires browser reauthentication. The absolute maximum length of a refresh chain is not yet proven.
+1. In Home Assistant 2026.11+, apri **Impostazioni → Marketplace → Aggiungi da link**.
+2. Inserisci `https://github.com/EnrCol/ha-contarina` come repository personalizzato.
+3. Installa **Contarina SOL (unofficial)**; riavvia Home Assistant se richiesto.
+4. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL**.
+5. Accedi a [SOL](https://sol.servizicontarina.it/) nel tuo browser e inserisci un **JWT `accessToken` recente** nella configurazione privata di Home Assistant. Seleziona i contratti da monitorare.
 
-## Install from Home Assistant Marketplace (2026.11+)
+**Non inserire mai il token o le credenziali in issue GitHub, chat, screenshot o file pubblici.** Il token è una credenziale di accesso e contiene anche dati personali.
 
-1. Open **Settings → Marketplace → Add from link**.
-2. Enter **https://github.com/EnrCol/ha-contarina** and add it as a custom integration repository.
-3. Install **Contarina SOL (unofficial)**. Restart Home Assistant if required.
-4. Open **Settings → Devices & services → Add integration → Contarina SOL**.
-5. Sign in to https://sol.servizicontarina.it/ in your browser and obtain a fresh `accessToken`; enter it **only** in the Home Assistant configuration form.
-6. Select the contracts you want to monitor.
+### Accesso assistito (sperimentale)
 
-**This is an untested beta.** Retain your existing garbage collection and notification automations during validation.
+Per evitare gli strumenti sviluppatore stiamo provando un **bookmarklet**: un preferito eseguito *solo sulla pagina SOL già autenticata*, che legge il cookie `accessToken` e lo copia negli appunti senza inviarlo ad altri siti. Prima dell'uso leggi [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md) e il [codice leggibile](tools/contarina_token_bookmarklet.js).
 
-## Verified source and current limits
+Il metodo è **testato solo con cookie sintetici**: sul browser reale va ancora verificato che `document.cookie` renda disponibile `accessToken`. Se non compare, resta valida la procedura DevTools. Non è supportato il login automatico con username/password né un bypass di reCAPTCHA.
 
-The API endpoint shapes originate from a sanitized, authenticated SOL session audit on 5 November 2026. They have not yet been exercised by this code inside Home Assistant. The API is undocumented and may change without notice.
+Il JWT dura circa **55 minuti**: Home Assistant lo rinnova mentre rimane online; un'interruzione superiore al tempo residuo richiede una nuova autenticazione dal browser. La durata massima assoluta dei rinnovi concatenati non è ancora nota.
 
-Not yet implemented: an easy browser-assisted initial login, invoice balance-due amount, tariff/emptying-cost estimates, automatically adding newly assigned bins without a reload. Next-year calendar publication and non-domestic/condominium cases require additional tests.
+## Card Lovelace di esempio
 
-## Security
+Questa card usa solo entità Contarina già esistenti. Sostituisci `CONTRACT` con il suffisso della tua utenza, leggibile da **Impostazioni → Dispositivi e servizi → Contarina → Entità**.
 
-All operations are HTTP GET and read-only. No financial transactions or contract changes. Tokens and raw API responses are not included in diagnostics or source files. Secure Home Assistant config storage and backups as they contain the access token.
+```yaml
+type: entities
+title: Raccolta Contarina
+entities:
+  - entity: sensor.contarina_CONTRACT_rifiuti_oggi
+    name: Oggi
+  - entity: sensor.contarina_CONTRACT_rifiuti_domani
+    name: Domani
+  - entity: sensor.contarina_CONTRACT_prossima_raccolta
+    name: Prossima raccolta
+  - entity: sensor.contarina_CONTRACT_fatture_disponibili
+    name: Fatture nello storico
+```
 
-## Development and tests
+Per una card più completa, inclusi il **contatore Secco** e la **tabella dello storico fatture**, consulta [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). La tabella dei dati finanziari dovrebbe essere usata solo in dashboard private o riservate agli amministratori.
 
-Run offline tests with `python -m pip install aiohttp && python -m unittest discover -s tests -v`. GitHub Actions runs tests, hassfest and HACS validation. The results must be checked before asserting Marketplace compatibility.
+## Note e limiti
 
-See [SPEC_0_2.md](SPEC_0_2.md), [TEST_PLAN.md](TEST_PLAN.md), and [MARKETPLACE.md](MARKETPLACE.md).
+- L'API SOL non è pubblica e può cambiare senza preavviso.
+- La fatturazione non determina un saldo esigibile certo; verificare sul portale Contarina.
+- Le date visualizzate nei sensori *Prossima raccolta* e *Ultimo svuotamento* sono testuali `GG-MM-AAAA`; il formato ISO è nell'attributo `data_iso` per automazioni e confronti.
+- Per il minimo Secco valgono soltanto i casi verificati: utenza domestica, singolo contenitore Secco attivo da 120 L, dati dei componenti e svuotamenti validi.
+- È consigliato mantenere attiva la vecchia integrazione rifiuti finché tutte le automazioni e le notifiche non siano state migrate e confrontate.
+- Il download HACS sostituisce i file dell'integrazione; le dashboard create manualmente in Home Assistant non sono installate automaticamente.
 
-License: MIT.
+## Sviluppo e verifiche
 
-## Beta 0.2.1 — visible data improvements
+Test Python: `python -m pip install aiohttp && python -m unittest discover -s tests -v`.
 
-- Upcoming collection and last-emptying sensors display `GG-MM-AAAA` as text, with `data_iso` for machine-readable use. The native calendar is unchanged. These two sensor types no longer expose `device_class: date`; automations expecting date entities must use `data_iso` rather than comparing the text state as a date.
-- Existing unique IDs for bin-emptying and last-emptying sensors are preserved. Their display names now use the waste material instead of the container code; the original `COD_CONTENITORE` is exposed as `codice_contenitore` in attributes. Existing `entity_id` values can still contain the old codes because Home Assistant's registry keeps them stable.
-- Last emptying is now searched across the container's recorded lifetime. When SOL omits its activation date, the search falls back to the last ten years and marks the attributes `storico_completo: false`.
-- Invoice summaries distinguish **due soon**, **overdue for review** and **other unsettled status**, without treating an upcoming bill as an overdue balance. Existing `fatture_da_verificare` unique ID is preserved.
-- The new `Totale fatturato anno` sensor sums known, regular SOL invoices by **issue year**, not payments made during the year. Cancelled, refunded, compensated and unknown-status documents are excluded, and the excluded count is explicit. Credit-note netting and the exact amount owed remain unverified; this is **not a spending or cash-flow sensor**.
-- `Fatture disponibili` retains the count and exposes an issuance-year summary plus a bounded list of invoice details in attributes (up to 60 entries). These attributes are private Home Assistant data and may be recorded by Recorder; do not expose the sensor publicly.
-- To display **Rifiuti oggi** before **Rifiuti domani** and show upcoming collection dates, use the explicit dashboard configuration in [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). The alphabetical auto-generated device list cannot be reordered by this integration.
+Test bookmarklet: `node --test tests/bookmarklet.test.mjs`.
 
-All changes are limited to the GitHub source. Installing an update in Home Assistant is a separate operation requiring approval.
+La CI verifica inoltre hassfest e HACS. Vedi [specifica 0.2](SPEC_0_2.md), [piano di collaudo](TEST_PLAN.md) e [note di rilascio](RELEASE_NOTES_0.2.3b1.md).
 
-## Beta 0.2.2 — Secco tariff threshold (read-only)
-
-For a **single active domestic Secco bin of 120 L**, the existing annual-emptyings
-sensor exposes `minimo_annuo_stimato`, `svuotamenti_prima_eccedenza`,
-`svuotamenti_oltre_minimo` and `componenti_calcolo` as attributes.
-The annual minimum is **household members + 1**, as described in the official
-[Contarina FAQ](https://contarina.it/faq-domande-frequenti).
-
-**This is an estimated billed minimum, not free emptyings.** The currently
-reported household count may differ from the count used by Contarina on
-31 December of the previous year. `verifica_componenti_31_12_precedente`
-marks this caveat. The integration deliberately does not infer minima for
-other bin capacities, non-domestic contracts, invalid data or multiple Secco
-bins. No additional sensors or entities are created; IDs remain unchanged.
-
-The personal Home Assistant "Contarina" dashboard can display an invoice
-history table from the existing `Fatture disponibili` entity attribute
-`storico_fatture` and a Secco summary. This private dashboard is configured
-on Home Assistant itself; it is not automatically installed by HACS. Keep
-financial details out of public dashboards.
+Licenza: MIT.
