@@ -4,7 +4,7 @@
 
 **Integrazione non ufficiale** per consultare in Home Assistant il calendario della raccolta differenziata, i contenitori, gli svuotamenti e le fatture dello [Sportello Online Contarina (SOL)](https://sol.servizicontarina.it/).
 
-> **Beta 0.2.5b2 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
+> **Beta 0.2.5b4 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
 
 [![Apri questo repository nel Marketplace di Home Assistant](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=EnrCol&repository=ha-contarina&category=integration)
 

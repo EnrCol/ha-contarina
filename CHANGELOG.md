@@ -2,6 +2,18 @@
 
 Le versioni `b*` sono **beta**: l'API Contarina SOL non è pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
 
+## [0.2.5b4] — Identità visiva per la raccolta rifiuti
+
+- Nuova icona con **bidone dei rifiuti e simbolo del riciclo** su fondo verde, senza testo per rimanere riconoscibile nelle dimensioni piccole del frontend.
+- Nuovo logo coordinato che aggiunge la dicitura **Contarina SOL**.
+- Immagini PNG 256×256 verificate mediante il controllo automatico di integrità.
+- Nessuna modifica ai flussi SOL, entità, JWT o automazioni.
+
+## [0.2.5b3] — Correzione dei PNG
+
+- Ripristinati `icon.png` e `logo.png` integri dopo la regressione di integrità nella `0.2.4b1`.
+- Aggiunto il test che controlla CRC dei chunk, firma PNG, dimensioni e fine file.
+
 ## [0.2.5b2] — Documentazione per distribuzione beta
 
 - Riscritto README per primo login facilitato, installazione, limitazioni e supporto.

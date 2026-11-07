@@ -33,7 +33,7 @@ Dopo un aggiornamento potrebbero restare traduzioni in cache. Esci dal flusso, r
 3. **Marketplace:** il catalogo pubblico recupera le immagini delle integrazioni che vi sono censite, tramite sincronizzazione dalle **GitHub Release**. Un repository aggiunto manualmente da link potrebbe non avere l'icona indicizzata nello stesso modo. Il segnaposto del Marketplace non prova che la release non contenga il PNG.
 4. Se il PNG locale esiste ma la grafica continua a mancare, apri una issue specificando **solo** Home Assistant/versione, schermata interessata e risultato HTTP della richiesta all'immagine, senza token né indirizzi privati.
 
-**Stato:** i file nel repository sono verificati. La comparsa dell'icona nel Marketplace e nella UI di ogni installazione **non è ancora verificata**, quindi non è dichiarata risolta dalla release 0.2.5b2.
+**Stato:** i file nel repository sono verificati. La visualizzazione dopo l'installazione dipende anche dal riavvio e dalla cache del frontend; dalla `0.2.5b4` la nuova icona è un bidone per la raccolta, non la precedente C, quindi non è dichiarata risolta dalla release 0.2.5b2.
 
 Riferimenti ufficiali: [Brand images for custom integrations](https://contributors.home-assistant.io/core/integrations/brands/) · [Publish a custom integration](https://contributors.home-assistant.io/marketplace/guides/integrations/).
 
