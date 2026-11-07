@@ -1,84 +1,74 @@
-# Accesso assistito al portale SOL
+# Login e riconnessione a Contarina SOL
 
-## Metodo consigliato: collegamento dal browser (0.2.5b1)
+**Versione:** 0.2.5b2 e successive. Il login vero avviene sempre su [SOL](https://sol.servizicontarina.it/); l'integrazione non riceve la password, non supera reCAPTCHA e non automatizza l'accesso al sito.
 
-Vale per il **primo collegamento** (*Aggiungi integrazione → Contarina SOL → Collega dal browser*), per la **riautenticazione** (notifica «sessione scaduta») e per **Riconfigura** (*Impostazioni → Dispositivi e servizi → Contarina SOL → ⋮ → Riconfigura → Riconnetti dal browser*).
+## Primo collegamento
 
-1. Home Assistant mostra un **codice di abbinamento** (es. `K7P4-QXMR`) e il pulsante **Apri sito web**, che apre la pagina di collegamento.
-2. **Solo la prima volta** crea il preferito *Invia token a Home Assistant*:
-   - computer: trascina il pulsante nella barra dei preferiti;
-   - smartphone: tocca **Copia codice del preferito**, poi crea un preferito qualsiasi e sostituiscine l'indirizzo con il codice copiato (istruzioni per iPhone e Android nella pagina).
-3. Clicca **Apri Contarina SOL** e accedi: il browser può compilare le credenziali salvate.
-4. Sulla pagina SOL autenticata usa il preferito. Se stai usando lo stesso browser da cui hai aperto Home Assistant il collegamento è immediato; da **un altro browser o dal telefono** la pagina chiede il codice di abbinamento mostrato da Home Assistant.
-5. Home Assistant verifica il token con SOL e controlla l'account. Al primo collegamento chiede poi quali utenze monitorare; nella riautenticazione si ricollega da solo.
+1. Home Assistant → **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL**.
+2. Scegli **Collega dal browser**.
+3. Premi **Apri sito web**: si apre la pagina di collegamento. Il codice di abbinamento resta visibile nel dialogo Home Assistant.
+4. La prima volta crea il preferito **Invia token a Home Assistant** dalla pagina aperta:
+   - **Computer:** trascina il pulsante nella barra dei preferiti (non cliccarlo nella pagina di creazione).
+   - **Telefono:** premi **Copia codice del preferito**, aggiungi ai preferiti una pagina qualsiasi, modifica il preferito sostituendone l'URL con il codice copiato. Su Chrome Android cerca poi il nome del preferito nella barra degli indirizzi mentre sei su SOL.
+5. Premi **Apri Contarina SOL**, accedi con le normali credenziali e completa gli eventuali controlli del portale.
+6. Sulla pagina SOL **autenticata** attiva il preferito; se browser/dispositivo sono diversi da quelli che hanno avviato il collegamento, inserisci il codice di abbinamento.
+7. Home Assistant verifica il JWT con SOL; alla prima configurazione seleziona i contratti da monitorare.
 
-Esempio tipico: Home Assistant aperto sul PC, login a SOL dal telefono → sul telefono usi il preferito e inserisci il codice che vedi sul PC.
+Il codice vale **10 minuti ed è monouso**; se scade riavvia il flusso. Il preferito contiene solo l'indirizzo di Home Assistant, ma deve essere ricreato se cambi indirizzo (es. locale ↔ remoto). Il telefono deve poter raggiungere quell'indirizzo, preferibilmente in HTTPS.
 
-Il telefono deve raggiungere Home Assistant all'indirizzo contenuto nel preferito (rete locale o URL remoto, es. Nabu Casa).
+## Riconnettere una sessione scaduta
 
-## Avviso di sessione scaduta
+Quando HA o SOL rimangono indisponibili abbastanza a lungo, il JWT può scadere. Home Assistant mostra una notifica persistente e una segnalazione nelle **Riparazioni**.
 
-Se Home Assistant resta offline più di ~45 minuti la sessione SOL scade. In quel caso l'integrazione:
+1. Vai in **Impostazioni → Dispositivi e servizi → Contarina SOL → ⋮ → Riconfigura**, oppure usa il collegamento nella notifica.
+2. Scegli **Riconnetti dal browser**.
+3. Apri SOL, accedi e riusa il preferito (se la URL di HA non è cambiata).
+4. Il collegamento si completa senza ricopiare il token. Una notifica già aperta viene rimossa quando l'integrazione torna operativa.
 
-- crea una **notifica persistente** con il link diretto all'integrazione (oltre alla segnalazione in *Impostazioni → Riparazioni* che Home Assistant crea da sé);
-- invia, se configurato in *Opzioni → Notifica push quando la sessione scade*, una **notifica push** (es. `notify.mobile_app_telefono`) che, toccata, apre l'integrazione nell'app Companion;
-- genera l'evento **`contarina_session_expired`** per automazioni personalizzate:
+L'integrazione tenta il rinnovo del JWT durante il normale funzionamento con intervallo intorno ai 10 minuti. Se il JWT è **già scaduto**, serve un nuovo login su SOL: non esiste una procedura autonoma con password.
+
+## Smartphone e browser diversi
+
+È supportato il percorso **Home Assistant su PC, SOL sul telefono**, con codice di abbinamento mostrato nel dialogo di Home Assistant. La pagina di creazione del preferito è adattata a schermi mobili, ma supporto e comportamento dei bookmarklet possono dipendere dal browser, dalla gestione degli appunti e dalle estensioni. Il collaudo del flusso da dispositivo diverso comprende test automatici e browser simulati: **non tutti i browser mobili sono stati provati con SOL reale**.
+
+## Notifiche
+
+La scadenza crea una notifica persistente e l'evento `contarina_session_expired`. Dalle **Opzioni** dell'integrazione puoi scegliere un servizio `notify.*` esistente per una notifica push opzionale. Il push sulla Companion App non è stato ancora collaudato su tutti i dispositivi.
+
+Esempio di automazione (sostituisci il servizio del telefono):
 
 ```yaml
-- id: contarina_sessione_scaduta
-  alias: "Contarina - Avviso sessione scaduta"
-  triggers:
-    - trigger: event
-      event_type: contarina_session_expired
-  actions:
-    - action: notify.mobile_app_telefono
+id: contarina_sessione_scaduta
+alias: "Contarina - Avviso sessione scaduta"
+triggers:
+  - trigger: event
+    event_type: contarina_session_expired
+actions:
+  - action: notify.mobile_app_telefono
+    data:
+      title: "Contarina SOL"
+      message: "Sessione scaduta: apri Home Assistant per ricollegarla."
       data:
-        title: "Contarina SOL"
-        message: "Sessione scaduta: tocca per riconnettere."
-        data:
-          url: /config/integrations/integration/contarina
-          clickAction: /config/integrations/integration/contarina
+        url: /config/integrations/integration/contarina
+        clickAction: /config/integrations/integration/contarina
+mode: single
 ```
 
-L'avviso viene inviato una sola volta per scadenza e si azzera quando l'integrazione torna operativa.
+**Evita duplicazioni:** se selezioni già un servizio push nelle opzioni Contarina, questa automazione invierà un secondo avviso.
 
-Sicurezza:
+## Alternativa: incollare il JWT
 
-- Il preferito contiene **solo l'indirizzo** del tuo Home Assistant, nessun segreto.
-- Nello stesso browser il collegamento è autorizzato da un codice casuale monouso (256 bit), legato al singolo flusso avviato in Home Assistant, valido 10 minuti e salvato solo nel browser che l'ha avviato (nella scheda, con ripiego per flusso se usi il preferito in un'altra scheda). Dopo 5 tentativi errati viene annullato.
-- Da un altro browser o dispositivo serve il codice di abbinamento: 8 caratteri (~40 bit), visibile solo nell'interfaccia di Home Assistant e nella pagina aperta da essa, monouso, valido 10 minuti. Dopo 10 codici errati (su tutti i flussi) l'inserimento viene bloccato per 10 minuti, rendendo impraticabile qualsiasi tentativo di indovinarlo.
-- La consegna del token è accettata solo da pagine con la stessa origine di Home Assistant: schema (http/https), host e porta devono coincidere (header `Origin`). Dietro reverse proxy valgono solo le intestazioni `X-Forwarded-*` dei proxy configurati come fidati in Home Assistant (`use_x_forwarded_for`, `trusted_proxies`).
-- L'indirizzo della pagina di riconnessione è quello da cui stai usando Home Assistant (header `HA-Frontend-Base`, come per i login OAuth); in mancanza si usa l'URL configurato in *Impostazioni → Sistema → Rete*.
-- Il token passa dalla pagina SOL a Home Assistant nella parte dell'indirizzo dopo `#`, che non viene inviata in rete; la pagina di Home Assistant lo cancella subito dalla barra degli indirizzi e lo consegna con una richiesta allo stesso indirizzo.
-- Usa Home Assistant in **HTTPS** quando possibile. In HTTP il token viaggia in chiaro sulla rete locale, esattamente come quando lo incolli nel modulo.
-- Il preferito va ricreato se apri Home Assistant da un indirizzo diverso (es. IP locale e URL remoto).
-- Se qualcosa non va, il flusso passa automaticamente al copia-incolla.
+Nel menu iniziale o di riconnessione seleziona **Incolla il token manualmente**. Dopo un normale login SOL puoi usare il bookmarklet **Copia token Contarina** in [tools/BOOKMARKLET.txt](../tools/BOOKMARKLET.txt) e incollare il JWT nel campo riservato di Home Assistant. Gli strumenti sviluppatore del browser sono un'ultima alternativa.
 
-## Metodo alternativo: copia-incolla
+Non riportare il JWT in issue, chat, screenshot, cronologie accessibili o servizi di sincronizzazione degli appunti. Per il comportamento degli appunti consulta [privacy e sicurezza](PRIVACY_SICUREZZA.md).
 
-L'integrazione Home Assistant non acquisisce username/password e non prova a eseguire reCAPTCHA. Il primo JWT si ottiene esclusivamente **dopo un login normale sul sito ufficiale Contarina SOL**.
+## Meccanismo di sicurezza in breve
 
-### Preferito «Copia token Contarina»
+- Ogni flusso usa uno stato casuale monouso legato al config flow e valido 10 minuti, non inserito nel preferito.
+- Se si usa un altro dispositivo si richiede un **codice breve monouso** con blocco temporaneo globale dopo tentativi errati.
+- Il JWT passa dal browser SOL al frammento URL della pagina HA e poi tramite POST allo stesso origin; lo stato e il token sono verificati lato Home Assistant e SOL.
+- La vista di ricezione richiede origine esatta (schema, host e porta) secondo le regole dei proxy fidati di Home Assistant. Per accesso remoto via Nabu Casa è previsto HTTPS.
+- Il JWT viene salvato nella configurazione di Home Assistant e può finire nei backup. Usare HTTPS quando possibile.
+- Nessun token viene inviato a server aggiuntivi dall'integrazione; le API di raccolta sono richieste GET a SOL.
 
-1. Apri [https://sol.servizicontarina.it/](https://sol.servizicontarina.it/) e accedi normalmente.
-2. Crea un nuovo preferito nel browser e chiamalo **Copia token Contarina**.
-3. Modifica l'**indirizzo/URL** del preferito: incolla **l'intera riga** contenuta in [`tools/BOOKMARKLET.txt`](../tools/BOOKMARKLET.txt), incluso `javascript:` iniziale. Non inserire l'indirizzo in una ricerca web.
-4. Mentre sei ancora sulla pagina autenticata di **sol.servizicontarina.it**, clicca il preferito. Se il token è visibile alla pagina ed è valido, il browser conferma la copia negli appunti.
-5. Apri **Impostazioni → Dispositivi e servizi → Contarina SOL** di Home Assistant e incolla il token nel campo richiesto (anche nella procedura di riautenticazione).
-
-Il bookmarklet copia il token **solo negli appunti locali**, non lo invia a server. Controlla sempre che il codice letto dal preferito provenga dal [repository ufficiale del progetto](https://github.com/EnrCol/ha-contarina) e non da link di sconosciuti.
-
-Se il browser impedisce la copia, viene offerto un campo per **copia manuale**. Non lasciare il token visibile sullo schermo e non copiarlo in chat, issue o screenshot. Ricorda che gli appunti possono essere sincronizzati con altri dispositivi: cancella il token dagli appunti dopo averlo incollato in Home Assistant.
-
-## Esiti ancora da verificare
-
-- Verificato su sessione reale: `accessToken` è non-HttpOnly e leggibile con `document.cookie` dalla pagina SOL.
-- Alcuni browser o estensioni possono bloccare i bookmarklet oppure l'API degli appunti.
-- Il token scade dopo circa **55 minuti** e non può essere rinnovato una volta scaduto. Se il bookmarklet segnala sessione scaduta, riesegui il login su SOL.
-- Non è un login automatico persistente: la funzione è **solo un ausilio per copiare il token** dopo l'autenticazione effettuata dall'utente.
-
-## Sicurezza
-
-Il codice [`tools/contarina_token_bookmarklet.js`](../tools/contarina_token_bookmarklet.js) rifiuta qualsiasi pagina diversa da `https://sol.servizicontarina.it`, cerca esclusivamente il cookie `accessToken`, verifica la presenza di un JWT e che restino almeno due minuti di validità. Non usa `fetch`, `XMLHttpRequest`, `sendBeacon`, storage, server esterni o logging del token. **Non verifica la firma crittografica**: questa verifica viene demandata al backend SOL quando Home Assistant utilizza il token.
-
-Il codice del preferito è stato testato con JWT **fittizi**, non con credenziali reali. La procedura tradizionale che recupera manualmente il cookie dagli strumenti sviluppatore resta il fallback.
+Approfondisci in [PRIVACY_SICUREZZA.md](PRIVACY_SICUREZZA.md). Se un flusso termina in errore, riparti dal menu iniziale o consulta [FAQ](FAQ.md).

@@ -1,81 +1,88 @@
 # Contarina SOL per Home Assistant
 
-![Icona Contarina SOL (integrazione non ufficiale)](custom_components/contarina/brand/icon.png)
+![Icona di Contarina SOL](custom_components/contarina/brand/icon.png)
 
-**Integrazione indipendente e non ufficiale** per consultare calendario rifiuti, contenitori, svuotamenti e fatture dello Sportello Online Contarina (SOL). Non è sviluppata né approvata da Contarina S.p.A.
+**Integrazione non ufficiale** per consultare in Home Assistant il calendario della raccolta differenziata, i contenitori, gli svuotamenti e le fatture dello [Sportello Online Contarina (SOL)](https://sol.servizicontarina.it/).
 
-> **Beta 0.2.3b1.** Testata con Home Assistant 2026.11 su un'utenza domestica reale. Il calendario è stato confrontato con l'integrazione ICS esistente (25 date su 25 coincidenti nel periodo verificato). Mancano test estesi su utenze non domestiche, condominiali e durata massima della sessione.
+> **Beta 0.2.5b2 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
+
+[![Apri questo repository nel Marketplace di Home Assistant](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=EnrCol&repository=ha-contarina&category=integration)
 
 ## Funzionalità
 
-- Configurazione grafica con selezione di uno o più contratti SOL.
-- Calendario Home Assistant nativo, rifiuti di oggi/domani e prossima raccolta.
-- Contenitori, svuotamenti annui e ultimo svuotamento registrato.
-- Stima del **minimo annuale addebitato per il Secco** su utenze domestiche con un solo contenitore da 120 L: componenti del nucleo + 1; dati negli attributi del sensore svuotamenti esistente. La stima non significa prese gratuite e va confrontata con la composizione familiare presa a riferimento da Contarina.
-- Fatture, scadenze, classificazioni SOL, storico nell'attributo `storico_fatture` di *Fatture disponibili* e totale fatturato per anno. **L'importo della fattura non è un residuo da pagare verificato**.
-- JWT rinnovato automaticamente ogni 15 minuti e salvato nella configurazione protetta di Home Assistant.
-- Operazioni HTTP **solo GET**; nessuna modifica ai contratti o ai pagamenti.
+- **Raccolta rifiuti:** calendario nativo, raccolte di oggi e domani, prossima raccolta.
+- **Contenitori:** tipologia, capacità, svuotamenti dell'anno e data dell'ultimo svuotamento.
+- **Secco:** stima del minimo annuo fatturato per una sola utenza domestica con un unico contenitore Secco attivo da 120 L: componenti SOL + 1. Gli svuotamenti **non sono gratuiti**; la composizione familiare della fattura può essere diversa da quella attuale.
+- **Fatture:** ultima fattura, documenti da verificare, scadenze, storico e totale fatturato per anno. Gli importi fatturati **non sono necessariamente importi da pagare**.
+- **Primo accesso e riconnessione facilitati:** login al sito ufficiale SOL, poi preferito del browser per trasferire il JWT a Home Assistant senza copiarlo manualmente. È disponibile un codice di abbinamento per un altro browser o smartphone.
+- **Sessione:** rinnovo automatico del JWT mentre Home Assistant e SOL restano raggiungibili; se scade, notifica persistente, Riparazioni ed eventuale notifica push configurata.
 
-## Installazione da Marketplace
+L'integrazione legge le API SOL con richieste GET: **non paga fatture, non cambia contratti e non comanda contenitori**. Non raccoglie né salva le credenziali username/password di SOL.
 
-1. In Home Assistant 2026.11+, apri **Impostazioni → Marketplace → Aggiungi da link**.
-2. Inserisci `https://github.com/EnrCol/ha-contarina` come repository personalizzato.
-3. Installa **Contarina SOL (unofficial)**; riavvia Home Assistant se richiesto.
-4. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL**.
-5. Accedi a [SOL](https://sol.servizicontarina.it/) nel tuo browser e inserisci un **JWT `accessToken` recente** nella configurazione privata di Home Assistant. Seleziona i contratti da monitorare.
+## Installazione rapida
 
-**Non inserire mai il token o le credenziali in issue GitHub, chat, screenshot o file pubblici.** Il token è una credenziale di accesso e contiene anche dati personali.
+**Requisito:** Home Assistant 2026.11.0 o successivo con accesso allo Sportello Online Contarina.
 
-### Accesso assistito (sperimentale)
+1. Usa il pulsante **Marketplace** qui sopra, oppure apri **Impostazioni → Marketplace → Aggiungi da link** e inserisci `https://github.com/EnrCol/ha-contarina`.
+2. Aggiungi il repository come **integrazione**, installa la release beta e riavvia Home Assistant se lo richiede.
+3. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL (unofficial)**.
+4. Seleziona **Collega dal browser** (consigliato). Nella pagina che si apre crea il preferito **Invia token a Home Assistant**, accedi a SOL e usa il preferito dalla pagina SOL autenticata.
+5. Se il login avviene su un altro browser o dispositivo, inserisci il **codice di abbinamento** mostrato da Home Assistant (monouso, valido 10 minuti).
+6. Seleziona le utenze da monitorare e completa la configurazione.
 
-**Collegamento senza copia-incolla (0.2.5b1):** sia al primo collegamento sia nella riconnessione, *Collega/Riconnetti dal browser* apre SOL; dopo il login un preferito invia il token direttamente a Home Assistant. Funziona anche da smartphone o da un altro browser con un codice di abbinamento mostrato da Home Assistant. Se la sessione scade compaiono una notifica con link diretto, l'evento `contarina_session_expired` e, se configurata, una notifica push. Dettagli in [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md).
+**Alternativa:** scegli **Incolla il token manualmente**. Non incollare mai la password al posto del JWT.
 
-Per evitare gli strumenti sviluppatore c'è anche un **bookmarklet**: un preferito eseguito *solo sulla pagina SOL già autenticata*, che legge il cookie `accessToken` e lo copia negli appunti senza inviarlo ad altri siti. Prima dell'uso leggi [LOGIN_ASSISTITO.md](docs/LOGIN_ASSISTITO.md) e il [codice leggibile](tools/contarina_token_bookmarklet.js).
-
-Su una sessione SOL reale è stato verificato che `document.cookie` espone `accessToken` (cookie non HttpOnly). La copia negli appunti del bookmarklet dipende dal browser; se viene bloccata resta la copia manuale o la procedura DevTools. Non è supportato il login automatico con username/password né un bypass di reCAPTCHA.
-
-Il JWT dura circa **55 minuti** e SOL **non rinnova un token già scaduto** (HTTP 401). Home Assistant lo rinnova ogni 10 minuti mentre è online, quindi il residuo resta sempre di almeno ~45 minuti.
-
-- Riavvii, aggiornamenti e brevi interruzioni di rete (fino a ~45 minuti): nessun intervento.
-- Home Assistant spento o offline più a lungo: compare la richiesta di riautenticazione; accedi su SOL e incolla un nuovo token (bookmarklet).
-
-SOL non usa refresh token, sessioni lato server o cookie di rinnovo: l'unica credenziale è il JWT (verificato). La durata massima assoluta dei rinnovi concatenati non è ancora nota.
+Guide: [installazione e aggiornamenti](MARKETPLACE.md) · [primo login, smartphone e riconnessione](docs/LOGIN_ASSISTITO.md) · [FAQ](docs/FAQ.md).
 
 ## Card Lovelace di esempio
 
-Questa card usa solo entità Contarina già esistenti. Sostituisci `CONTRACT` con il suffisso della tua utenza, leggibile da **Impostazioni → Dispositivi e servizi → Contarina → Entità**.
+Dopo l'installazione, sostituisci `CONTRATTO` con il numero presente nei tuoi `entity_id`; non usare necessariamente il nome commerciale dell'utenza.
 
 ```yaml
 type: entities
-title: Raccolta Contarina
+title: Contarina — Raccolta rifiuti
 entities:
-  - entity: sensor.contarina_CONTRACT_rifiuti_oggi
+  - entity: sensor.contarina_CONTRATTO_rifiuti_oggi
     name: Oggi
-  - entity: sensor.contarina_CONTRACT_rifiuti_domani
+  - entity: sensor.contarina_CONTRATTO_rifiuti_domani
     name: Domani
-  - entity: sensor.contarina_CONTRACT_prossima_raccolta
+  - entity: sensor.contarina_CONTRATTO_prossima_raccolta
     name: Prossima raccolta
-  - entity: sensor.contarina_CONTRACT_fatture_disponibili
-    name: Fatture nello storico
+  - entity: sensor.contarina_CONTRATTO_fatture_disponibili
+    name: Fatture disponibili
 ```
 
-Per una card più completa, inclusi il **contatore Secco** e la **tabella dello storico fatture**, consulta [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). La tabella dei dati finanziari dovrebbe essere usata solo in dashboard private o riservate agli amministratori.
+Altre card, con calendario, **minimo Secco** e **tabella fatture**, sono in [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). Le informazioni di fatturazione dovrebbero comparire soltanto in dashboard private.
 
-## Note e limiti
+## Stato del collaudo
 
-- L'API SOL non è pubblica e può cambiare senza preavviso.
-- La fatturazione non determina un saldo esigibile certo; verificare sul portale Contarina.
-- Le date visualizzate nei sensori *Prossima raccolta* e *Ultimo svuotamento* sono testuali `GG-MM-AAAA`; il formato ISO è nell'attributo `data_iso` per automazioni e confronti.
-- Per il minimo Secco valgono soltanto i casi verificati: utenza domestica, singolo contenitore Secco attivo da 120 L, dati dei componenti e svuotamenti validi.
-- È consigliato mantenere attiva la vecchia integrazione rifiuti finché tutte le automazioni e le notifiche non siano state migrate e confrontate.
-- Il download HACS sostituisce i file dell'integrazione; le dashboard create manualmente in Home Assistant non sono installate automaticamente.
+**Verificato su Home Assistant 2026.11 reale, con una utenza domestica:**
 
-## Sviluppo e verifiche
+- Primo collegamento dal browser con SOL reale e completamento della scelta utenza.
+- Rimozione e nuova configurazione: **23 entità ricreate con gli stessi `entity_id`**, e calendario/fatture/svuotamenti nuovamente disponibili.
+- Storico di 11 fatture, riepiloghi annuali e stima del minimo Secco da 120 L.
+- Confronto del calendario con la precedente fonte ICS per un intervallo campione: 25 date su 25 corrispondenti.
 
-Test Python: `python -m pip install aiohttp && python -m unittest discover -s tests -v`.
+**Verificato nei test automatici / su istanza simulata:** abbinamento da altro browser, frontend Chrome, simulazione smartphone, gestione delle scadenze, controlli di origine, hassfest e HACS.
 
-Test bookmarklet: `node --test tests/bookmarklet.test.mjs`.
+**Da verificare su più installazioni:** utenze non domestiche/condominiali, tutte le varianti di browser mobili, push Companion reale, rinnovi ininterrotti di lunga durata e comportamento su altri contratti. Il login facilitato **non sostituisce l'accesso a SOL e non aggira reCAPTCHA**.
 
-La CI verifica inoltre hassfest e HACS. Vedi [specifica 0.2](SPEC_0_2.md), [piano di collaudo](TEST_PLAN.md) e [note di rilascio](RELEASE_NOTES_0.2.3b1.md).
+## Limitazioni e sicurezza
 
-Licenza: MIT.
+- L'API SOL è privata e non documentata ufficialmente: modifiche lato Contarina possono interrompere l'integrazione.
+- Il JWT è una **credenziale sensibile**, salvata nella configurazione Home Assistant e nei relativi backup. Non pubblicarla in issue, log, screenshot o chat.
+- Il rinnovo avviene normalmente ogni circa 10 minuti; un JWT scaduto non può essere rinnovato senza nuova autenticazione su SOL.
+- La stima Secco è disponibile solo nei casi tariffari documentati e va confrontata con la fattura ufficiale.
+- Le date dei sensori sono mostrate in formato `GG-MM-AAAA`; per confronti e automazioni usa l'attributo `data_iso`.
+- Le dashboard non sono installate automaticamente; gli aggiornamenti dell'integrazione possono richiedere un riavvio.
+- Le immagini brand locali sono comprese nel pacchetto, ma la loro visualizzazione nel Marketplace dipende anche dal catalogo/cache Home Assistant. Consulta la [diagnostica del branding](docs/FAQ.md#licona-non-compare-nel-marketplace-o-nelle-integrazioni).
+
+Approfondimenti: [privacy e sicurezza](docs/PRIVACY_SICUREZZA.md) · [specifica tecnica](SPEC_0_2.md) · [piano di test](TEST_PLAN.md).
+
+## Versioni, supporto e contributi
+
+- [Release](https://github.com/EnrCol/ha-contarina/releases) · [Changelog](CHANGELOG.md) · [Segnala un problema](https://github.com/EnrCol/ha-contarina/issues/new).
+- Prima di aprire una issue leggi [FAQ](docs/FAQ.md) e [guida al contributo](docs/CONTRIBUTING.md); **non allegare JWT, dati di fatturazione o numeri di contratto reali**.
+- Codice sorgente e test aperti; licenza [MIT](LICENSE).
+
+**Contarina S.p.A. non fornisce assistenza per questa integrazione non ufficiale.**
