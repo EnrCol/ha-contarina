@@ -4,7 +4,7 @@
 
 **Integrazione non ufficiale** per consultare in Home Assistant il calendario della raccolta differenziata, i contenitori, gli svuotamenti e le fatture dello [Sportello Online Contarina (SOL)](https://sol.servizicontarina.it/).
 
-> **Versione stabile 0.2.6 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
+> **Ultima stabile 0.2.6 · Nuova beta 0.2.7b1 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
 
 [![Apri questo repository nel Marketplace di Home Assistant](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=EnrCol&repository=ha-contarina&category=integration)
 
@@ -13,7 +13,7 @@
 - **Raccolta rifiuti:** calendario nativo, raccolte di oggi e domani, prossima raccolta.
 - **Contenitori:** tipologia, capacità, svuotamenti dell'anno e data dell'ultimo svuotamento.
 - **Secco:** stima del minimo annuo fatturato per una sola utenza domestica con un unico contenitore Secco attivo da 120 L: componenti SOL + 1. Gli svuotamenti **non sono gratuiti**; la composizione familiare della fattura può essere diversa da quella attuale.
-- **Fatture:** ultima fattura, documenti da verificare, scadenze, storico e totale fatturato per anno. Gli importi fatturati **non sono necessariamente importi da pagare**.
+- **Fatture:** ultima fattura, documenti da verificare, scadenze, storico e totale fatturato per anno. Dalla beta **0.2.7b1**, un sensore nativo `date` **Scadenza ultima fattura** per ciascuna utenza espone la data SOL della fattura più recente per emissione, con attributi `emissione`, `importo` (totale) e `stato`. Non equivale alla prossima scadenza insoluta. Gli importi fatturati **non sono necessariamente importi da pagare**.
 - **PDF delle fatture (0.2.6):** card Lovelace inclusa (`custom:contarina-invoice-card`) con storico per anno e pulsanti **Apri PDF** (visualizzatore integrato, anche nell'app Companion) e **Scarica PDF**. I PDF vengono scaricati da SOL solo su richiesta e archiviati in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf`; il visualizzatore (pdf.js, Apache-2.0) è incluso nell'integrazione e funziona senza internet; l'azione `contarina.download_invoices` scarica tutte le fatture mancanti.
 - **Primo accesso e riconnessione facilitati:** login al sito ufficiale SOL, poi preferito del browser per trasferire il JWT a Home Assistant senza copiarlo manualmente. È disponibile un codice di abbinamento per un altro browser o smartphone.
 - **Sessione:** rinnovo automatico del JWT mentre Home Assistant e SOL restano raggiungibili; se scade, notifica persistente, Riparazioni ed eventuale notifica push configurata.
@@ -47,7 +47,7 @@ title: Fatture Contarina
 
 La card individua automaticamente le utenze configurate, mostra le fatture raggruppate per anno e offre **Apri PDF** / **Scarica PDF**. La proprietà `entity` è opzionale se desideri limitare la vista a un solo sensore *Fatture disponibili*: copia l'`entity_id` effettivo da **Strumenti per sviluppatori → Stati**; il prefisso dipende dal nome delle entità e non va indovinato.
 
-Per una **dashboard completa a due viste**, con raccolta, svuotamenti, storico annuale e pulsante per archiviare i PDF, usa [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). Gli importi e gli identificativi di fattura sono dati personali: proteggi l'**intera istanza** e gli account HA; la sola restrizione di una dashboard non limita gli endpoint API.
+Per una **dashboard completa a due viste**, con raccolta, svuotamenti, storico annuale e pulsante per archiviare i PDF, usa [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). La guida include anche un riepilogo automatico delle **scadenze delle ultime fatture** dalla beta 0.2.7b1. Gli importi e gli identificativi di fattura sono dati personali: proteggi l'**intera istanza** e gli account HA; la sola restrizione di una dashboard non limita gli endpoint API.
 
 ## Stato del collaudo
 

@@ -12,7 +12,7 @@ from homeassistant.util import dt as dt_util
 
 from .coordinator import ContarinaCoordinator
 from .entity import ContarinaEntity
-from .models import decimal_amount, display_date, invoice_status, latest_invoice, next_collection, material_label, secco_minimum_120l
+from .models import date_only, decimal_amount, display_date, invoice_status, latest_invoice, next_collection, material_label, secco_minimum_120l
 
 
 class ContarinaSensor(ContarinaEntity, SensorEntity):
@@ -94,6 +94,26 @@ def _invoice_attributes(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _last_invoice_deadline(data: dict[str, Any]):
+    """Scadenza della fattura più recente per data di emissione, non la prossima da pagare."""
+    invoice = _last_invoice(data)
+    return date_only(invoice.get("scadenza")) if invoice else None
+
+
+def _last_invoice_deadline_attributes(data: dict[str, Any]) -> dict[str, Any]:
+    """Informazioni SOL collegate alla data, senza inferire saldo o pagamento effettivo."""
+    invoice = _last_invoice(data)
+    if invoice is None:
+        return {}
+    issued = date_only(invoice.get("data_emissione"))
+    return {
+        "emissione": issued.isoformat() if issued else None,
+        "importo": _last_invoice_amount(data),
+        "stato": invoice_status(invoice),
+        "tipo_importo": "totale_fattura_non_residuo",
+    }
+
+
 def _invoice_summary(data: dict[str, Any]) -> dict[str, Any]:
     return data.get("invoice_summary", {})
 
@@ -136,6 +156,10 @@ def _standard_sensors(coordinator: ContarinaCoordinator, ref: str) -> list[Senso
         ContarinaSensor(coordinator, ref, "ultima_fattura", "Ultima fattura",
                         _last_invoice_amount, device_class=SensorDeviceClass.MONETARY,
                         unit="EUR", attributes=_invoice_attributes),
+        ContarinaSensor(coordinator, ref, "scadenza_ultima_fattura",
+                        "Scadenza ultima fattura",
+                        _last_invoice_deadline, device_class=SensorDeviceClass.DATE,
+                        attributes=_last_invoice_deadline_attributes),
         ContarinaInvoiceHistorySensor(coordinator, ref, "fatture_totali", "Fatture disponibili",
                         lambda d: _invoice_summary(d).get("count"),
                         attributes=_invoice_history_attributes),

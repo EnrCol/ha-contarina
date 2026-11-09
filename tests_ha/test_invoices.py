@@ -147,6 +147,54 @@ async def test_history_sensor_attributes_for_card_and_recorder_privacy(hass, loa
     assert {"storico_fatture", "riepilogo_annuale", "utenza"} <= ContarinaInvoiceHistorySensor._unrecorded_attributes
 
 
+async def test_due_date_sensor_is_native_and_tracks_latest_issued_invoice(hass, loaded):
+    from datetime import date
+
+    from custom_components.contarina.sensor import (
+        _last_invoice_deadline,
+        _last_invoice_deadline_attributes,
+    )
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    records = [
+        entry for entry in registry.entities.values()
+        if entry.platform == "contarina"
+        and entry.unique_id == "ACC1_123_scadenza_ultima_fattura"
+    ]
+    assert len(records) == 1
+    state = hass.states.get(records[0].entity_id)
+    assert state is not None
+    assert state.state == "2026-03-10"
+    assert state.attributes["device_class"] == "date"
+    assert state.attributes["emissione"] == "2026-03-10"
+    assert state.attributes["importo"] == 100.0
+    assert state.attributes["stato"] == "paid"
+    assert state.attributes["tipo_importo"] == "totale_fattura_non_residuo"
+
+    # Scadenza = campo SOL della fattura più recente PER EMISSIONE,
+    # anche quando un documento più vecchio ha una scadenza più lontana.
+    data = {"invoices": [
+        {"data_emissione": "2025-01-10", "scadenza": "2027-01-01",
+         "tot_totalefatt": 30, "stato_fattura": 3, "tipo_perdita": 0},
+        {"data_emissione": "2026-11-01T08:30:00", "scadenza": "2026-12-23",
+         "tot_totalefatt": "127.12", "stato_fattura": 0, "tipo_perdita": 0},
+    ]}
+    assert _last_invoice_deadline(data) == date(2026, 12, 23)
+    attrs = _last_invoice_deadline_attributes(data)
+    assert attrs["emissione"] == "2026-11-01"
+    assert attrs["importo"] == 127.12
+    assert attrs["stato"] == "due"
+
+    # Nessuna fattura o scadenza SOL non valida -> stato unavailable/unknown,
+    # mai una data inventata o derivata dall'importo pagato.
+    assert _last_invoice_deadline({"invoices": []}) is None
+    assert _last_invoice_deadline_attributes({"invoices": []}) == {}
+    assert _last_invoice_deadline({"invoices": [
+        {"data_emissione": "2026-11-01", "scadenza": "non disponibile"}
+    ]}) is None
+
+
 async def test_card_is_served_and_registered_as_lovelace_resource(hass, hass_client, loaded):
     client = await hass_client()
     r = await client.get("/contarina_static/contarina-invoice-card.js")

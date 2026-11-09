@@ -2,6 +2,14 @@
 
 Le versioni con suffisso `b*` sono **beta**; la 0.2.6 è la prima versione **stabile** del progetto. L'API Contarina SOL resta non pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
 
+## [0.2.7b1] — Sensore nativo scadenza ultima fattura
+
+- Un nuovo sensore `date` **Scadenza ultima fattura** per ogni utenza, con valore derivato dal campo SOL `scadenza` della fattura emessa più di recente.
+- Attributi `emissione`, `importo` totale, `stato` SOL e `tipo_importo`; nessuna deduzione automatica di saldo, debito o data del pagamento.
+- Nessun nuovo endpoint o chiamata SOL, nessun cambio agli `entity_id` dei sensori esistenti e nessuna modifica alla card PDF.
+- Test del tipo data nativo, dei valori reali simulati, di assenza/invalidità e della scelta per data di emissione.
+- Le limitazioni privacy della versione 0.2.6 rimangono invariate.
+
 ## [0.2.6] — Prima versione stabile · documentazione e privacy
 
 - Prima release stabile, derivata dalla beta 0.2.6b1 collaudata su Home Assistant TEST 2026.11.0 con una utenza SOL reale.

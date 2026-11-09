@@ -1,4 +1,4 @@
-# Esempi Lovelace — Contarina SOL 0.2.6
+# Esempi Lovelace — Contarina SOL 0.2.6 / 0.2.7b1
 
 La card **`custom:contarina-invoice-card`** è inclusa nell'integrazione; non richiede un secondo repository HACS. Le dashboard sono invece facoltative e non vengono create automaticamente.
 
@@ -144,3 +144,32 @@ Il pulsante della dashboard chiama `contarina.download_invoices`, che archivia i
 4. Non usare una URL pubblica per i PDF: la card effettua richieste autenticate tramite il frontend HA.
 
 Per altri problemi: [FAQ](docs/FAQ.md), [installazione](MARKETPLACE.md).
+
+## 6. Scadenza ultima fattura (beta 0.2.7b1)
+
+La beta aggiunge **un sensore nativo di tipo data per ogni utenza**: *Scadenza ultima fattura*. Il suo stato è una data ISO `YYYY-MM-DD` (oppure non disponibile, se SOL non fornisce una scadenza valida). Sono presenti gli attributi `emissione`, `importo` (totale fattura, non residuo), `stato` (classificazione SOL) e `tipo_importo`.
+
+Il sensore fa riferimento alla **fattura più recente per data di emissione**, anche se già pagata: **non** è necessariamente la prossima bolletta da pagare. `stato: due` o un importo non dimostrano da soli l'esistenza di un debito; verifica sul portale ufficiale.
+
+Per riepilogare più utenze senza conoscere gli `entity_id`, aggiungi una card Markdown:
+
+```yaml
+type: markdown
+title: Contarina — Scadenze ultime fatture
+content: |-
+  {% set ns = namespace(count=0) %}
+  {% for e in integration_entities('contarina') | sort %}
+  {% if e.startswith('sensor.') and e.endswith('_scadenza_ultima_fattura') %}
+  - **{{ state_attr(e, 'friendly_name') or e }}**:
+    {{ states(e) if has_value(e) else 'Non disponibile' }}
+    · Totale: {{ ('%.2f €' | format(state_attr(e, 'importo') | float)) if is_number(state_attr(e, 'importo')) else '—' }}
+    · Stato SOL: {{ state_attr(e, 'stato') or 'Sconosciuto' }}
+  {% set ns.count = ns.count + 1 %}
+  {% endif %}
+  {% endfor %}
+  {% if ns.count == 0 %}
+  Nessun sensore Scadenza ultima fattura disponibile.
+  {% endif %}
+```
+
+Per inserirlo in una card `entities` con altre utenze/fornitori, usa l'`entity_id` effettivo da **Strumenti per sviluppatori → Stati**. Non supporre un prefisso fisso.

@@ -15,5 +15,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/EnrCol/ha-contarina/issues",
   "requirements": [],
-  "version": "0.2.6"
+  "version": "0.2.7b1"
 }
