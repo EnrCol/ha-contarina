@@ -2,6 +2,12 @@
 
 Le versioni con suffisso `b*` sono **beta**; la 0.2.6 è la prima versione **stabile** del progetto. L'API Contarina SOL resta non pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
 
+## [0.2.7] — Stabile: scadenza ultima fattura e card di esempio
+
+- Promossa a stabile la beta **0.2.7b1** dopo il collaudo su Home Assistant TEST 2026.11.0: sensore nativo `date` con valore ISO, emissione, totale fattura e stato SOL corretti.
+- Aggiornati README e guida Lovelace con una card a due tile (scadenza e importo), una card Markdown per più utenze e una sezione dedicata nella dashboard completa.
+- Aggiornati i riferimenti a release e limiti privacy. **Nessuna modifica al codice runtime, al JWT, alle API SOL o alla card PDF** rispetto alla beta 0.2.7b1.
+
 ## [0.2.7b1] — Sensore nativo scadenza ultima fattura
 
 - Un nuovo sensore `date` **Scadenza ultima fattura** per ogni utenza, con valore derivato dal campo SOL `scadenza` della fattura emessa più di recente.

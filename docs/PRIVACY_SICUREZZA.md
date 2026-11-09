@@ -1,6 +1,6 @@
 # Privacy e sicurezza — Contarina SOL
 
-**Integrazione non ufficiale** e indipendente da Contarina S.p.A. Descrizione della versione 0.2.6 stabile (stesse logiche della beta 0.2.6b1), non un'informativa di Contarina né una garanzia sulla sicurezza dei servizi esterni.
+**Integrazione non ufficiale** e indipendente da Contarina S.p.A. Descrizione della versione 0.2.7 stabile (stessa gestione JWT/PDF della 0.2.6, più un sensore nativo per la scadenza della fattura più recente), non un'informativa di Contarina né una garanzia sulla sicurezza dei servizi esterni.
 
 ## Dati trattati
 
@@ -54,6 +54,6 @@ Per vulnerabilità sensibili evita di pubblicare dettagli sfruttabili in issue a
 
 ## Limiti della verifica e responsabilità dell'installazione
 
-I test automatizzati coprono validazione PDF, limiti di dimensione, accesso autenticato, concorrenza e percorsi fuori archivio. Il collaudo reale ha verificato il caricamento dell'integrazione e della card su Home Assistant TEST con un account SOL; **non equivale a un audit indipendente di sicurezza**. Le limitazioni di autorizzazione e fallback filesystem sopra indicate restano presenti nella stabile 0.2.6, perché la release non modifica il codice della beta 0.2.6b1.
+I test automatizzati coprono validazione PDF, limiti di dimensione, accesso autenticato, concorrenza e percorsi fuori archivio. Il collaudo reale ha verificato il caricamento dell'integrazione e della card su Home Assistant TEST con un account SOL; **non equivale a un audit indipendente di sicurezza**. Le limitazioni di autorizzazione e fallback filesystem sopra indicate restano presenti nella stabile 0.2.7: rispetto alla beta 0.2.7b1, questa release non modifica il codice runtime.
 
 Per dati sensibili valuta una istanza HA dedicata e proteggi accesso, cartella Media, file di backup ed eventuali esportazioni. Se non puoi garantire che tutti gli utenti autenticati siano autorizzati a vedere le fatture, **non attivare la funzionalità PDF su quell'istanza**.

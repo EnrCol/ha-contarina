@@ -1,4 +1,4 @@
-# Esempi Lovelace — Contarina SOL 0.2.6 / 0.2.7b1
+# Esempi Lovelace — Contarina SOL 0.2.7
 
 La card **`custom:contarina-invoice-card`** è inclusa nell'integrazione; non richiede un secondo repository HACS. Le dashboard sono invece facoltative e non vengono create automaticamente.
 
@@ -120,6 +120,29 @@ views:
               perform_action: contarina.download_invoices
               confirmation:
                 text: Scaricare e archiviare tutti i PDF mancanti?
+      - type: grid
+        cards:
+          - type: heading
+            heading: Scadenze ultime fatture
+            icon: mdi:calendar-clock
+          - type: markdown
+            content: |-
+              {% set ns = namespace(count=0) %}
+              {% for e in integration_entities('contarina') | sort %}
+              {% if e.startswith('sensor.') and e.endswith('_scadenza_ultima_fattura') %}
+              **{{ state_attr(e, 'friendly_name') or e }}**
+              - Scadenza: **{{ states(e) if has_value(e) else 'Non disponibile' }}**
+              - Emissione: {{ state_attr(e, 'emissione') or 'Non disponibile' }}
+              - Totale fattura: {{ ('%.2f' | format(state_attr(e, 'importo') | float)) if is_number(state_attr(e, 'importo')) else '—' }} €
+              - Stato SOL: `{{ state_attr(e, 'stato') or 'Sconosciuto' }}`
+
+              {% set ns.count = ns.count + 1 %}
+              {% endif %}
+              {% endfor %}
+              {% if ns.count == 0 %}Nessun sensore Scadenza ultima fattura disponibile.{% endif %}
+
+              La scadenza dell'ultima fattura non coincide necessariamente
+              con la prossima scadenza non pagata.
 ```
 
 La dashboard usa `integration_entities('contarina')`: non contiene riferimenti ai numeri di utenza reali. In presenza di più account/utenze legge tutte le entità disponibili, salvo filtri di visibilità e permessi del frontend.
@@ -145,9 +168,9 @@ Il pulsante della dashboard chiama `contarina.download_invoices`, che archivia i
 
 Per altri problemi: [FAQ](docs/FAQ.md), [installazione](MARKETPLACE.md).
 
-## 6. Scadenza ultima fattura (beta 0.2.7b1)
+## 6. Scadenza ultima fattura
 
-La beta aggiunge **un sensore nativo di tipo data per ogni utenza**: *Scadenza ultima fattura*. Il suo stato è una data ISO `YYYY-MM-DD` (oppure non disponibile, se SOL non fornisce una scadenza valida). Sono presenti gli attributi `emissione`, `importo` (totale fattura, non residuo), `stato` (classificazione SOL) e `tipo_importo`.
+La versione stabile 0.2.7 aggiunge **un sensore nativo di tipo data per ogni utenza**: *Scadenza ultima fattura*. Il suo stato è una data ISO `YYYY-MM-DD` (oppure non disponibile, se SOL non fornisce una scadenza valida). Sono presenti gli attributi `emissione`, `importo` (totale fattura, non residuo), `stato` (classificazione SOL) e `tipo_importo`.
 
 Il sensore fa riferimento alla **fattura più recente per data di emissione**, anche se già pagata: **non** è necessariamente la prossima bolletta da pagare. `stato: due` o un importo non dimostrano da soli l'esistenza di un debito; verifica sul portale ufficiale.
 
@@ -173,3 +196,38 @@ content: |-
 ```
 
 Per inserirlo in una card `entities` con altre utenze/fornitori, usa l'`entity_id` effettivo da **Strumenti per sviluppatori → Stati**. Non supporre un prefisso fisso.
+
+### Card di collaudo per una sola utenza (due tile)
+
+Questa configurazione corrisponde alla **sezione aggiunta alla dashboard Contarina TEST per la 0.2.7b1**: due tile, dettaglio dell'emissione/stato e nota sul significato dei dati. **Sostituisci i due `entity_id` dimostrativi con quelli effettivi** letti in Home Assistant. Il prefisso dipende dal nome dell'utenza e non è fisso.
+
+```yaml
+type: vertical-stack
+cards:
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: sensor.INSERISCI_SCADENZA_ULTIMA_FATTURA
+        name: Scadenza ultima fattura
+        icon: mdi:calendar-check
+      - type: tile
+        entity: sensor.INSERISCI_ULTIMA_FATTURA
+        name: Importo ultima fattura
+        icon: mdi:currency-eur
+  - type: markdown
+    content: |-
+      {% set e = 'sensor.INSERISCI_SCADENZA_ULTIMA_FATTURA' %}
+      **Emissione:** {{ state_attr(e, 'emissione') or 'Non disponibile' }}
+
+      **Stato SOL:** `{{ state_attr(e, 'stato') or 'unknown' }}`
+
+      **Tipo importo:** totale della fattura, non saldo residuo.
+
+      *La data è la scadenza dell'ultima fattura emessa,
+      non necessariamente la prossima bolletta da pagare.*
+```
+
+Le due tile riportano i valori nativi dei sensori. Nella vista **Sections** di Lovelace puoi anche inserire le due tile singolarmente (sei colonne ciascuna) e la Markdown a tutta larghezza, come nella dashboard TEST.
+
