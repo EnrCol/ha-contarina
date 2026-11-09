@@ -1,6 +1,6 @@
 # Login e riconnessione a Contarina SOL
 
-**Versione:** 0.2.5b2 e successive. Il login vero avviene sempre su [SOL](https://sol.servizicontarina.it/); l'integrazione non riceve la password, non supera reCAPTCHA e non automatizza l'accesso al sito.
+**Versione:** 0.2.6 stabile (e precedenti versioni 0.2.5b2+). Il login vero avviene sempre su [SOL](https://sol.servizicontarina.it/); l'integrazione non riceve la password, non supera reCAPTCHA e non automatizza l'accesso al sito.
 
 ## Primo collegamento
 
@@ -8,11 +8,13 @@
 2. Scegli **Collega dal browser**.
 3. Premi **Apri sito web**: si apre la pagina di collegamento. Il codice di abbinamento resta visibile nel dialogo Home Assistant.
 4. La prima volta crea il preferito **Invia token a Home Assistant** dalla pagina aperta:
-   - **Computer:** trascina il pulsante nella barra dei preferiti (non cliccarlo nella pagina di creazione).
+   - **Computer:** mostra la barra dei preferiti del browser e trascina il pulsante **nella barra dei preferiti**, non nel campo indirizzi/ricerca. In Safari per Mac premi ⌘⇧B per mostrare la barra; se appare «Safari non consente JavaScript dal campo di ricerca smart», controlla **Safari → Impostazioni → Sviluppo → Consenti JavaScript dal campo di ricerca smart** (l'opzione potrebbe essere già attiva). Non occorre disabilitare altre protezioni di Safari.
    - **Telefono:** premi **Copia codice del preferito**, aggiungi ai preferiti una pagina qualsiasi, modifica il preferito sostituendone l'URL con il codice copiato. Su Chrome Android cerca poi il nome del preferito nella barra degli indirizzi mentre sei su SOL.
 5. Premi **Apri Contarina SOL**, accedi con le normali credenziali e completa gli eventuali controlli del portale.
 6. Sulla pagina SOL **autenticata** attiva il preferito; se browser/dispositivo sono diversi da quelli che hanno avviato il collegamento, inserisci il codice di abbinamento.
 7. Home Assistant verifica il JWT con SOL; alla prima configurazione seleziona i contratti da monitorare.
+
+Prima di usare il preferito su SOL, verifica che sia stato salvato come segnalibro con indirizzo che inizia per `javascript:`; non incollarne il contenuto in chat o segnalazioni.
 
 Il codice vale **10 minuti ed è monouso**; se scade riavvia il flusso. Il preferito contiene solo l'indirizzo di Home Assistant, ma deve essere ricreato se cambi indirizzo (es. locale ↔ remoto). Il telefono deve poter raggiungere quell'indirizzo, preferibilmente in HTTPS.
 

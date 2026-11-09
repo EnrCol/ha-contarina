@@ -1,128 +1,146 @@
-# Esempi Lovelace — Contarina SOL
+# Esempi Lovelace — Contarina SOL 0.2.6
 
-Le card sono **opzionali** e **non vengono installate automaticamente**. Apri una dashboard privata → **Modifica → Aggiungi scheda → Manuale** e incolla uno degli esempi. Non servono card personalizzate.
+La card **`custom:contarina-invoice-card`** è inclusa nell'integrazione; non richiede un secondo repository HACS. Le dashboard sono invece facoltative e non vengono create automaticamente.
 
-## Identificare i sensori
+**Privacy:** fatture, importi, identificativi e PDF sono dati personali. Una dashboard riservata agli amministratori nasconde le viste agli altri utenti, ma non impone permessi amministrativi all'endpoint PDF (che richiede soltanto l'autenticazione HA). Usa l'integrazione solo su istanze il cui accesso sia adeguatamente limitato e consulta [privacy e sicurezza](docs/PRIVACY_SICUREZZA.md).
 
-Apri **Impostazioni → Dispositivi e servizi → Contarina → Entità**.
+## 1. Card fatture PDF (esempio minimo)
 
-Negli esempi sostituisci:
-- `CONTRATTO` con il numero che compare nei tuoi `entity_id` (es. in `sensor.contarina_123456_rifiuti_oggi`, il codice è `123456`).
-- `SECCO` con il codice del contenitore Secco attivo (es. `s654321` in `sensor.contarina_123456_svuotamenti_anno_s654321`).
-
-Non condividere gli `entity_id` reali se contengono identificativi personali.
-
-## 1. Raccolte e minimo Secco
-
-```yaml
-type: vertical-stack
-cards:
-  - type: entities
-    title: Contarina — Raccolte
-    entities:
-      - entity: sensor.contarina_CONTRATTO_rifiuti_oggi
-        name: Oggi
-      - entity: sensor.contarina_CONTRATTO_rifiuti_domani
-        name: Domani
-      - entity: sensor.contarina_CONTRATTO_prossima_raccolta
-        name: Prossima raccolta
-      - entity: sensor.contarina_CONTRATTO_svuotamenti_anno_SECCO
-        name: Secco — svuotamenti anno
-  - type: markdown
-    title: Secco — soglia annuale
-    content: >-
-      {% set e = 'sensor.contarina_CONTRATTO_svuotamenti_anno_SECCO' %}
-      {% set minimo = state_attr(e, 'minimo_annuo_stimato') %}
-      {% if minimo is number and states(e) not in ['unknown', 'unavailable'] %}
-      **{{ states(e) }} / {{ minimo }}** svuotamenti minimi fatturati.
-
-      **{{ state_attr(e, 'svuotamenti_prima_eccedenza') }}** prima dell'eccedenza.
-
-      **{{ state_attr(e, 'svuotamenti_oltre_minimo') }}** oltre il minimo.
-      {% else %}
-      Minimo annuo non disponibile per questo contratto o contenitore.
-      {% endif %}
-```
-
-Il minimo è una **stima** solo per un unico contenitore Secco domestico attivo da 120 L; è la quantità **fatturata**, non un numero di prese gratuite. I componenti SOL possono differire da quelli presi a riferimento sulla fattura.
-
-## 2. Fatture — dashboard privata
-
-### Card con PDF (consigliata)
+Dopo aver configurato almeno una utenza SOL, apri **Modifica dashboard → Aggiungi scheda → Manuale**:
 
 ```yaml
 type: custom:contarina-invoice-card
 title: Fatture Contarina
-# entity: sensor.contarina_CONTRATTO_fatture_disponibili   # facoltativo: una sola utenza
+# entity: sensor.INSERISCI_ID_FATTURE_DISPONIBILI  # facoltativo, per una sola utenza
 ```
 
-La card trova da sola i sensori **Fatture disponibili** (uno per utenza), raggruppa per anno e offre **Apri PDF** e **Scarica PDF**. Il PDF viene richiesto a SOL solo al primo utilizzo, poi è servito dall'archivio locale `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` (visibile anche in *Media → I miei media*). Serve un utente Home Assistant autenticato; la sessione SOL deve essere valida solo per le fatture non ancora archiviate. Il visualizzatore usa pdf.js 4.10.38 incluso nell'integrazione e servito da Home Assistant: nessuna CDN, funziona anche offline.
+Senza `entity`, la card trova automaticamente tutti i sensori con attributo `contarina_metric: invoice_history`. Raggruppa per anno e offre i pulsanti **Apri PDF** e **Scarica PDF**. Se imposti `entity`, devi usare l'identificativo reale del sensore *Fatture disponibili*, ottenibile in **Strumenti per sviluppatori → Stati**; il nome dell'entità può avere prefissi diversi a seconda del dispositivo.
 
-Per archiviare in anticipo tutte le fatture (es. mensilmente):
+I PDF vengono richiesti a SOL soltanto al primo accesso e salvati in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` quando la cartella è scrivibile. In seguito sono serviti dall'archivio locale; una sessione SOL valida è necessaria per scaricare PDF non ancora archiviati. Il visualizzatore include pdf.js 4.10.38: **nessuna CDN necessaria**, ma Home Assistant deve essere raggiungibile.
+
+## 2. Dashboard completa (due viste)
+
+Nell'editor **YAML dell'intera dashboard** (non nell'editor di una singola scheda) usa questa configurazione. Per una nuova dashboard, puoi crearne una in modalità storage, aprire l'editor di configurazione YAML e sostituire il contenuto iniziale.
 
 ```yaml
-- id: contarina_archivio_fatture
-  alias: "Contarina - Archivio mensile fatture PDF"
-  triggers:
-    - trigger: time
-      at: "03:17:00"
-  conditions:
-    - condition: template
-      value_template: "{{ now().day == 2 }}"
-  actions:
-    - action: contarina.download_invoices
+title: Contarina SOL
+views:
+  - title: Raccolta
+    path: raccolta
+    icon: mdi:recycle
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Raccolte
+            icon: mdi:calendar-check
+          - type: markdown
+            content: |-
+              {% set ns = namespace(count=0) %}
+              {% for e in integration_entities('contarina') | sort %}
+              {% if e.startswith('sensor.') and
+                 (e.endswith('_rifiuti_oggi') or
+                  e.endswith('_rifiuti_domani') or
+                  e.endswith('_prossima_raccolta')) %}
+              - **{{ state_attr(e, 'friendly_name') or e }}:** {{ states(e) }}
+              {% set ns.count = ns.count + 1 %}
+              {% endif %}
+              {% endfor %}
+              {% if ns.count == 0 %}
+              Nessun sensore disponibile. Completa prima il collegamento SOL.
+              {% endif %}
+      - type: grid
+        cards:
+          - type: heading
+            heading: Contenitori e svuotamenti
+            icon: mdi:trash-can-outline
+          - type: markdown
+            content: |-
+              {% set ns = namespace(count=0) %}
+              {% for e in integration_entities('contarina') | sort %}
+              {% if e.startswith('sensor.') and 'svuotamenti_anno_' in e %}
+              - **{{ state_attr(e, 'friendly_name') or e }}:** {{ states(e) }}
+              {% set ns.count = ns.count + 1 %}
+              {% endif %}
+              {% endfor %}
+              {% if ns.count == 0 %}
+              Nessun contatore svuotamenti disponibile.
+              {% endif %}
+          - type: markdown
+            content: >-
+              Il minimo Secco è una stima tariffaria, non un numero
+              di svuotamenti gratuiti. Verifica i dettagli su SOL.
+  - title: Fatture PDF
+    path: fatture
+    icon: mdi:file-pdf-box
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Storico e PDF
+            icon: mdi:receipt-text
+          - type: custom:contarina-invoice-card
+            title: Fatture Contarina
+            grid_options:
+              columns: full
+              rows: auto
+      - type: grid
+        cards:
+          - type: heading
+            heading: Riepilogo annuale
+            icon: mdi:chart-bar
+          - type: markdown
+            content: |-
+              {% set ns = namespace(count=0) %}
+              {% for e in integration_entities('contarina') | sort %}
+              {% if state_attr(e, 'contarina_metric') == 'invoice_history' %}
+              **{{ state_attr(e, 'friendly_name') or e }}:** {{ states(e) }} fatture
+
+              {% for anno, dati in (state_attr(e, 'riepilogo_annuale') or {}).items() | sort(reverse=true) %}
+              - **{{ anno }}:** {{ dati.get('numero_fatture', 0) }} fatture · {{ '%.2f' | format(dati.get('totale_fatturato', 0) | float) }} € fatturati
+              {% endfor %}
+              {% set ns.count = ns.count + 1 %}
+              {% endif %}
+              {% endfor %}
+              {% if ns.count == 0 %}
+              Storico non ancora disponibile. Controlla il collegamento SOL.
+              {% endif %}
+
+              Gli importi fatturati non sono necessariamente importi da pagare.
+          - type: button
+            name: Archivia fatture PDF mancanti
+            icon: mdi:file-download-outline
+            show_state: false
+            tap_action:
+              action: perform-action
+              perform_action: contarina.download_invoices
+              confirmation:
+                text: Scaricare e archiviare tutti i PDF mancanti?
 ```
 
-### Tabella Markdown (senza card personalizzata)
+La dashboard usa `integration_entities('contarina')`: non contiene riferimenti ai numeri di utenza reali. In presenza di più account/utenze legge tutte le entità disponibili, salvo filtri di visibilità e permessi del frontend.
 
-I dati sono nell'attributo `storico_fatture` del sensore **Fatture disponibili**, senza database o sensori aggiuntivi. Non mostrare la card a utenti ospiti.
+## 3. Calendar e sensori nativi
 
-```yaml
-type: markdown
-title: Contarina — Storico fatture
-content: >-
-  {% set fatture = state_attr('sensor.contarina_CONTRATTO_fatture_disponibili', 'storico_fatture') or [] %}
-  {% set ns = namespace(righe=['| Emissione | Totale | Stato SOL |', '| :--- | ---: | :--- |']) %}
-  {% for f in fatture %}
-  {% set em = f.emissione[8:10] ~ '/' ~ f.emissione[5:7] ~ '/' ~ f.emissione[:4] if f.emissione else '—' %}
-  {% set totale = ('%.2f' | format(f.importo | float)).replace('.', ',') ~ ' €' if f.importo is not none else '—' %}
-  {% set stato = 'Pagata' if f.stato == 'paid' else 'Da verificare' if f.stato in ['due', 'unpaid', 'partially_paid'] else (f.stato or '—') %}
-  {% set ns.righe = ns.righe + ['| ' ~ em ~ ' | ' ~ totale ~ ' | ' ~ stato ~ ' |'] %}
-  {% endfor %}
-  {{ ns.righe | join('\n') if fatture else 'Nessuna fattura disponibile.' }}
-```
+Puoi aggiungere anche una **card Calendario** nativa, ma devi scegliere l'entità `calendar.*` reale da **Strumenti per sviluppatori → Stati**. Lo stesso vale per i singoli sensori Secco, contenitori, fatture e raccolte. Il suffisso è indicativo, **non è garantito** un prefisso fisso `sensor.contarina_NUMERO`.
 
-**«Da verificare» non equivale a «da pagare».** Il totale fatturato non è un saldo residuo: controlla il portale Contarina per lo stato reale.
+Per il **minimo annuo Secco**, consulta gli attributi del relativo sensore svuotamenti. La stima è prevista soltanto per una utenza domestica con un unico contenitore Secco attivo da 120 L: gli svuotamenti minimi sono **fatturati**, non gratuiti.
 
-## 3. Calendario nativo
+## 4. Azione di archiviazione
 
-```yaml
-type: calendar
-title: Contarina — Calendario raccolte
-entities:
-  - calendar.contarina_CONTRATTO_raccolta_rifiuti
-```
+Il pulsante della dashboard chiama `contarina.download_invoices`, che archivia i PDF mancanti per tutte le utenze configurate. È possibile anche eseguire l'azione manualmente da **Strumenti per sviluppatori → Azioni**. Il parametro facoltativo `invoice_id` limita l'operazione a un identificativo SOL.
 
-Il calendario offre eventi Home Assistant nativi. Nei sensori testuali delle date, per automazioni e confronti usa l'attributo `data_iso` anziché analizzare la stringa `GG-MM-AAAA`.
+**Attenzione:** l'archivio Media conserva i PDF anche quando la relativa integrazione viene rimossa. Non usare l'azione su una istanza condivisa senza aver valutato chi può accedere ai file e ai backup.
 
-## 4. Contatori fatture
+## 5. Se la card non compare
 
-```yaml
-type: entities
-title: Contarina — Fatture
-entities:
-  - entity: sensor.contarina_CONTRATTO_ultima_fattura
-    name: Ultima fattura
-  - entity: sensor.contarina_CONTRATTO_fatture_disponibili
-    name: Fatture nello storico
-  - entity: sensor.contarina_CONTRATTO_fatture_in_scadenza
-    name: In scadenza
-  - entity: sensor.contarina_CONTRATTO_fatture_scadute_da_verificare
-    name: Scadute da verificare
-  - entity: sensor.contarina_CONTRATTO_totale_fatturato_anno
-    name: Totale fatturato nell'anno
-```
+1. Verifica che l'integrazione risulti **Caricata** e che il sensore *Fatture disponibili* contenga l'attributo `storico_fatture`.
+2. In **Impostazioni → Dashboard → Risorse** verifica la presenza del modulo `/contarina_static/contarina-invoice-card.js?v=0.2.6` (l'indirizzo viene registrato automaticamente).
+3. Aggiorna la pagina ignorando la cache; dopo l'installazione di un nuovo componente è normalmente necessario riavviare Home Assistant.
+4. Non usare una URL pubblica per i PDF: la card effettua richieste autenticate tramite il frontend HA.
 
-Anche le voci «in scadenza» e «scadute da verificare» indicano **classificazioni da confrontare con SOL**, non una richiesta di pagamento verificata.
-
-Per eventuali problemi di entità mancanti dopo una reinstallazione: [FAQ](docs/FAQ.md). Per l'installazione: [MARKETPLACE.md](MARKETPLACE.md).
+Per altri problemi: [FAQ](docs/FAQ.md), [installazione](MARKETPLACE.md).

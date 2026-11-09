@@ -1,6 +1,6 @@
 # Privacy e sicurezza — Contarina SOL
 
-**Integrazione non ufficiale** e indipendente da Contarina S.p.A. Descrizione della versione 0.2.5b2, non un'informativa di Contarina né una garanzia sulla sicurezza dei servizi esterni.
+**Integrazione non ufficiale** e indipendente da Contarina S.p.A. Descrizione della versione 0.2.6 stabile (stesse logiche della beta 0.2.6b1), non un'informativa di Contarina né una garanzia sulla sicurezza dei servizi esterni.
 
 ## Dati trattati
 
@@ -41,11 +41,19 @@ Le API SOL sono non pubbliche, possono cambiare e non hanno garanzie di compatib
 
 Per vulnerabilità sensibili evita di pubblicare dettagli sfruttabili in issue aperte; usa una segnalazione privata GitHub, se disponibile, oppure contatta il maintainer tramite un canale privato concordato. Consulta anche [FAQ](FAQ.md).
 
-## PDF delle fatture (0.2.6b1)
+## PDF delle fatture (0.2.6)
 
 - I PDF sono scaricati da SOL solo su richiesta esplicita (pulsante della card o azione `contarina.download_invoices`), mai dall'aggiornamento periodico.
-- Sono salvati in locale in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` (univoco per utenza e identificativo SOL), con creazione atomica ed esclusiva: un file esistente non viene mai sovrascritto, nemmeno con scritture concorrenti. Chi ha accesso alla cartella Media o ai backup di Home Assistant può leggerli.
+- Sono salvati in locale in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` (univoco per utenza e identificativo SOL). Il normale percorso con hard link pubblica il file completo senza sovrascriverne uno esistente. **Limitazione nota:** nel fallback per filesystem senza hard link, il file finale è aperto con `O_EXCL` e scritto direttamente: resta protetto dalla sovrascrittura, ma un lettore contemporaneo può osservare un file incompleto. Questo fallback non offre la stessa garanzia di pubblicazione atomica.
+- **Permessi filesystem:** il fallback usa permessi `0644` (soggetti a umask/ACL); su sistemi multiutente gli accessi devono essere protetti anche da permessi delle directory e del volume. Non considerare la directory Media un deposito cifrato o privato per il solo fatto di trovarsi in Home Assistant.
+- **Conservazione:** i PDF scaricati non vengono eliminati automaticamente alla rimozione dell'integrazione o dell'utenza; possono inoltre rimanere nei backup. La cancellazione dei documenti archiviati e delle copie di backup spetta all'amministratore.
 - Il visualizzatore usa pdf.js 4.10.38 (Apache-2.0) incluso nell'integrazione (`www/pdfjs`, hash SHA-256 verificati dai test), servito da Home Assistant: nessun codice di terze parti caricato da CDN, `isEvalSupported` disattivato.
-- L'endpoint `/api/contarina/invoice/{utenza}/{id}` richiede un utente Home Assistant autenticato e serve solo fatture degli account SOL configurati, con PDF disponibile su SOL; percorsi fuori dall'archivio e collegamenti simbolici sono rifiutati.
-- Lo storico per la card (numero, id, importi) non viene salvato nel Recorder: resta solo lo stato corrente del sensore.
-- Log ed errori non contengono token, URL, identificativi o contenuti dei documenti.
+- L'endpoint `/api/contarina/invoice/{utenza}/{id}` richiede un utente Home Assistant **autenticato**, ma **non controlla il ruolo amministratore e non applica permessi per singola utenza**: un utente HA autenticato può potenzialmente leggere le fatture di qualsiasi account SOL caricato nell'istanza, se ne conosce o ricava utenza e identificativo. Gli ID delle fatture sono presenti negli attributi correnti dei sensori. Limitare una dashboard agli amministratori **non limita l'accesso diretto all'endpoint**. Non concedere accesso all'istanza a utenti che non devono poter consultare questi dati; valuta una istanza separata. Il server rifiuta percorsi fuori dall'archivio e link simbolici e serve solo fatture dei contratti caricati.
+- Gli attributi dello storico usati dalla card (numero, ID, importi, riepilogo annuale, codice utenza) sono esclusi dal Recorder; **rimangono tuttavia nello stato corrente** e sono esposti agli utenti HA con accesso agli stati. Il Recorder può aver già conservato dati di versioni precedenti: l'aggiornamento non rimuove lo storico precedente.
+- Il codice dell'integrazione evita di scrivere token, URL SOL, identificativi e contenuti dei documenti nei propri log ed errori; non controlla eventuali log di proxy, server o strumenti di debug esterni.
+
+## Limiti della verifica e responsabilità dell'installazione
+
+I test automatizzati coprono validazione PDF, limiti di dimensione, accesso autenticato, concorrenza e percorsi fuori archivio. Il collaudo reale ha verificato il caricamento dell'integrazione e della card su Home Assistant TEST con un account SOL; **non equivale a un audit indipendente di sicurezza**. Le limitazioni di autorizzazione e fallback filesystem sopra indicate restano presenti nella stabile 0.2.6, perché la release non modifica il codice della beta 0.2.6b1.
+
+Per dati sensibili valuta una istanza HA dedicata e proteggi accesso, cartella Media, file di backup ed eventuali esportazioni. Se non puoi garantire che tutti gli utenti autenticati siano autorizzati a vedere le fatture, **non attivare la funzionalità PDF su quell'istanza**.

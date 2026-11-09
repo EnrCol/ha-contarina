@@ -23,7 +23,7 @@ from .reconnect import async_register_views
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CALENDAR]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-CARD_VERSION = "0.2.6b1"
+CARD_VERSION = "0.2.6"
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:

@@ -1,6 +1,6 @@
 # Installazione e distribuzione — Contarina SOL
 
-Versione documentata: **0.2.5b2 (beta)**. Requisito minimo **Home Assistant 2026.11.0**. Integrazione indipendente e non ufficiale.
+Versione documentata: **0.2.6 (stabile)**. Requisito minimo **Home Assistant 2026.11.0**. Integrazione indipendente e non ufficiale.
 
 ## Installare dal Marketplace
 
@@ -8,10 +8,11 @@ Versione documentata: **0.2.5b2 (beta)**. Requisito minimo **Home Assistant 2026
 
 1. In **Impostazioni → Marketplace**, scegli **Aggiungi da link** se il repository non compare nella ricerca.
 2. Inserisci `https://github.com/EnrCol/ha-contarina`, categoria **Integrazione**.
-3. Installa la release più recente, dopo averne letto le [note](https://github.com/EnrCol/ha-contarina/releases).
+3. Installa la release stabile `v0.2.6`, dopo averne letto le [note](https://github.com/EnrCol/ha-contarina/releases/tag/v0.2.6).
 4. Riavvia Home Assistant quando richiesto, in particolare dopo gli aggiornamenti di un'integrazione già caricata.
 5. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL (unofficial)**.
 6. Seleziona **Collega dal browser**, esegui normalmente il login al portale SOL, usa il preferito **Invia token a Home Assistant** e scegli le utenze.
+7. Aggiungi la card `custom:contarina-invoice-card` o la [dashboard completa di esempio](DASHBOARD_EXAMPLE.md), avendo prima letto i [limiti privacy](docs/PRIVACY_SICUREZZA.md#pdf-delle-fatture-026).
 
 Il collegamento dal browser esiste anche al **primo accesso**. Da uno smartphone o altro browser si usa il codice di abbinamento mostrato da Home Assistant. [Guida dettagliata](docs/LOGIN_ASSISTITO.md).
 
@@ -38,4 +39,4 @@ I file brand sono PNG e inclusi nella release. La loro presenza è verificata, *
 
 ## Privacy e assistenza
 
-SOL non è un'API pubblica e Home Assistant conserva un JWT di accesso; non condividerlo. Questa integrazione è indipendente da Contarina S.p.A. Per i problemi tecnici usa [le issue GitHub](https://github.com/EnrCol/ha-contarina/issues/new) dopo aver letto [privacy](docs/PRIVACY_SICUREZZA.md) e [FAQ](docs/FAQ.md).
+SOL non è un'API pubblica e Home Assistant conserva un JWT di accesso; non condividerlo. L'endpoint PDF è accessibile agli utenti HA autenticati, non soltanto agli amministratori: una dashboard privata non basta per isolare i documenti. I PDF restano nella cartella Media anche dopo la disinstallazione e possono essere inclusi nei backup. Questa integrazione è indipendente da Contarina S.p.A. Per i problemi tecnici usa [le issue GitHub](https://github.com/EnrCol/ha-contarina/issues/new) dopo aver letto [privacy](docs/PRIVACY_SICUREZZA.md) e [FAQ](docs/FAQ.md).

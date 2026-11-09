@@ -1,6 +1,20 @@
 # Changelog — Contarina SOL
 
-Le versioni `b*` sono **beta**: l'API Contarina SOL non è pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
+Le versioni con suffisso `b*` sono **beta**; la 0.2.6 è la prima versione **stabile** del progetto. L'API Contarina SOL resta non pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
+
+## [0.2.6] — Prima versione stabile · documentazione e privacy
+
+- Prima release stabile, derivata dalla beta 0.2.6b1 collaudata su Home Assistant TEST 2026.11.0 con una utenza SOL reale.
+- README e guida Lovelace aggiornati con card fatture PDF e dashboard a due viste (raccolta, svuotamenti, storico e archiviazione).
+- Documentati esplicitamente i limiti di accesso ai PDF da parte di qualunque utente HA autenticato, le regole di conservazione dell'archivio Media e il fallback non atomico in assenza di hard link.
+- Aggiornati i riferimenti alla versione, la risorsa frontend e la pipeline per distinguere una release stabile dalle beta.
+- **Nessuna modifica alla logica delle API SOL, all'accesso ai PDF, agli account o alla gestione JWT.** I limiti di sicurezza dichiarati restano aperti.
+
+## [0.2.6b1] — PDF delle fatture (beta)
+
+- Card fatture con visualizzatore pdf.js incluso, storico annuale e pulsanti Apri/Scarica PDF.
+- Archivio locale in Media distinto per utenza, anno, numero e ID; endpoint autenticato e azione `contarina.download_invoices`.
+- Test HACS, hassfest, Python, Home Assistant e browser; dettagli in [note beta](RELEASE_NOTES_0.2.6b1.md).
 
 ## [0.2.5b4] — Identità visiva per la raccolta rifiuti
 
