@@ -41,7 +41,9 @@ def exp_of(token):
 async def _make_entry(hass, http_conf):
     assert await async_setup_component(hass, "http", {"http": http_conf})
     # Real HA disables aiohttp router freezing (http/server.py) so views can be added late;
-    # the test client freezes it, so register before any client is created.
+    # the test client freezes it, so set up the integration (async_setup: card, invoice
+    # view, frontend/lovelace deps) and the reconnect views before any client is created.
+    assert await async_setup_component(hass, "contarina", {})
     from custom_components.contarina.reconnect import async_register_views
     async_register_views(hass)
     e = MockConfigEntry(domain="contarina", unique_id="ACC1",
@@ -274,6 +276,7 @@ async def _start_setup(hass, base="http://ha.test:8123"):
 
 async def test_first_setup_from_browser(hass, hass_client_no_auth):
     assert await async_setup_component(hass, "http", {})
+    assert await async_setup_component(hass, "contarina", {})
     from custom_components.contarina.reconnect import async_register_views
     async_register_views(hass)
     flow_id, state, _ = await _start_setup(hass)
@@ -295,6 +298,7 @@ async def test_first_setup_from_browser(hass, hass_client_no_auth):
 
 async def test_first_setup_with_pairing_code_from_phone(hass, hass_client_no_auth):
     assert await async_setup_component(hass, "http", {})
+    assert await async_setup_component(hass, "contarina", {})
     from custom_components.contarina.reconnect import async_register_views
     async_register_views(hass)
     flow_id, _, code = await _start_setup(hass)

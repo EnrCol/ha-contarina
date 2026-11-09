@@ -14,6 +14,7 @@
 - **Contenitori:** tipologia, capacità, svuotamenti dell'anno e data dell'ultimo svuotamento.
 - **Secco:** stima del minimo annuo fatturato per una sola utenza domestica con un unico contenitore Secco attivo da 120 L: componenti SOL + 1. Gli svuotamenti **non sono gratuiti**; la composizione familiare della fattura può essere diversa da quella attuale.
 - **Fatture:** ultima fattura, documenti da verificare, scadenze, storico e totale fatturato per anno. Gli importi fatturati **non sono necessariamente importi da pagare**.
+- **PDF delle fatture (0.2.6b1):** card Lovelace inclusa (`custom:contarina-invoice-card`) con storico per anno e pulsanti **Apri PDF** (visualizzatore integrato, anche nell'app Companion) e **Scarica PDF**. I PDF vengono scaricati da SOL solo su richiesta e archiviati in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf`; il visualizzatore (pdf.js, Apache-2.0) è incluso nell'integrazione e funziona senza internet; l'azione `contarina.download_invoices` scarica tutte le fatture mancanti.
 - **Primo accesso e riconnessione facilitati:** login al sito ufficiale SOL, poi preferito del browser per trasferire il JWT a Home Assistant senza copiarlo manualmente. È disponibile un codice di abbinamento per un altro browser o smartphone.
 - **Sessione:** rinnovo automatico del JWT mentre Home Assistant e SOL restano raggiungibili; se scade, notifica persistente, Riparazioni ed eventuale notifica push configurata.
 
@@ -50,6 +51,13 @@ entities:
     name: Prossima raccolta
   - entity: sensor.contarina_CONTRATTO_fatture_disponibili
     name: Fatture disponibili
+```
+
+Card fatture con PDF (registrata automaticamente come risorsa Lovelace):
+
+```yaml
+type: custom:contarina-invoice-card
+title: Fatture Contarina
 ```
 
 Altre card, con calendario, **minimo Secco** e **tabella fatture**, sono in [DASHBOARD_EXAMPLE.md](DASHBOARD_EXAMPLE.md). Le informazioni di fatturazione dovrebbero comparire soltanto in dashboard private.

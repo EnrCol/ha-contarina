@@ -48,6 +48,33 @@ Il minimo è una **stima** solo per un unico contenitore Secco domestico attivo 
 
 ## 2. Fatture — dashboard privata
 
+### Card con PDF (consigliata)
+
+```yaml
+type: custom:contarina-invoice-card
+title: Fatture Contarina
+# entity: sensor.contarina_CONTRATTO_fatture_disponibili   # facoltativo: una sola utenza
+```
+
+La card trova da sola i sensori **Fatture disponibili** (uno per utenza), raggruppa per anno e offre **Apri PDF** e **Scarica PDF**. Il PDF viene richiesto a SOL solo al primo utilizzo, poi è servito dall'archivio locale `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` (visibile anche in *Media → I miei media*). Serve un utente Home Assistant autenticato; la sessione SOL deve essere valida solo per le fatture non ancora archiviate. Il visualizzatore usa pdf.js 4.10.38 incluso nell'integrazione e servito da Home Assistant: nessuna CDN, funziona anche offline.
+
+Per archiviare in anticipo tutte le fatture (es. mensilmente):
+
+```yaml
+- id: contarina_archivio_fatture
+  alias: "Contarina - Archivio mensile fatture PDF"
+  triggers:
+    - trigger: time
+      at: "03:17:00"
+  conditions:
+    - condition: template
+      value_template: "{{ now().day == 2 }}"
+  actions:
+    - action: contarina.download_invoices
+```
+
+### Tabella Markdown (senza card personalizzata)
+
 I dati sono nell'attributo `storico_fatture` del sensore **Fatture disponibili**, senza database o sensori aggiuntivi. Non mostrare la card a utenti ospiti.
 
 ```yaml

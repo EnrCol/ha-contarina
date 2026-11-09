@@ -40,3 +40,12 @@ Gli attributi dei sensori e lo storico di Home Assistant possono conservare dati
 Le API SOL sono non pubbliche, possono cambiare e non hanno garanzie di compatibilità. Non è noto il limite assoluto di rinnovi consecutivi. La firma del JWT viene verificata **dal servizio SOL** quando il token viene usato; il bookmarklet verifica soltanto formato e scadenza apparente.
 
 Per vulnerabilità sensibili evita di pubblicare dettagli sfruttabili in issue aperte; usa una segnalazione privata GitHub, se disponibile, oppure contatta il maintainer tramite un canale privato concordato. Consulta anche [FAQ](FAQ.md).
+
+## PDF delle fatture (0.2.6b1)
+
+- I PDF sono scaricati da SOL solo su richiesta esplicita (pulsante della card o azione `contarina.download_invoices`), mai dall'aggiornamento periodico.
+- Sono salvati in locale in `media/contarina/fatture/UTENZA/ANNO/NUMERO_ID.pdf` (univoco per utenza e identificativo SOL), con creazione atomica ed esclusiva: un file esistente non viene mai sovrascritto, nemmeno con scritture concorrenti. Chi ha accesso alla cartella Media o ai backup di Home Assistant può leggerli.
+- Il visualizzatore usa pdf.js 4.10.38 (Apache-2.0) incluso nell'integrazione (`www/pdfjs`, hash SHA-256 verificati dai test), servito da Home Assistant: nessun codice di terze parti caricato da CDN, `isEvalSupported` disattivato.
+- L'endpoint `/api/contarina/invoice/{utenza}/{id}` richiede un utente Home Assistant autenticato e serve solo fatture degli account SOL configurati, con PDF disponibile su SOL; percorsi fuori dall'archivio e collegamenti simbolici sono rifiutati.
+- Lo storico per la card (numero, id, importi) non viene salvato nel Recorder: resta solo lo stato corrente del sensore.
+- Log ed errori non contengono token, URL, identificativi o contenuti dei documenti.

@@ -25,6 +25,9 @@ KEEPALIVE_SKIP_IF_FRESHER_SECONDS = 3300 - 5 * 60
 TOKEN_REFRESH_MARGIN_SECONDS = 30 * 60
 MAX_PAGES = 25
 REQUEST_TIMEOUT_SECONDS = 30
+PDF_MAX_BYTES = 20 * 1024 * 1024
+ARCHIVE_SUBDIR = ("contarina", "fatture")
+CARD_URL_PATH = "/contarina_static/contarina-invoice-card.js"
 
 # Material names are returned by the authenticated SOL endpoint.
 FALLBACK_MATERIALS = {"S": "Secco", "E": "Vegetale", "U": "Umido", "V": "VPL", "C": "Carta"}

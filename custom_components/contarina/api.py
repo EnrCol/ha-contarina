@@ -7,7 +7,7 @@ from datetime import date
 from typing import Any
 from urllib.parse import quote
 import aiohttp
-from .const import API_BASE, MAX_PAGES, REQUEST_TIMEOUT_SECONDS
+from .const import API_BASE, MAX_PAGES, PDF_MAX_BYTES, REQUEST_TIMEOUT_SECONDS
 from .models import ResponseShapeError, parse_balance, required_list
 
 class ContarinaAuthError(Exception):
@@ -126,3 +126,36 @@ class ContarinaApi:
         if not isinstance(data, dict) or not isinstance(data.get("access_token"), str):
             raise ContarinaConnectionError("Invalid refresh response")
         return data["access_token"]
+
+    async def invoice_pdf(self, ref: str, invoice_id: str, token: str) -> bytes:
+        """GET one invoice PDF (read-only). Size, type and signature are enforced."""
+        path = f"/api/contracts/{_safe_segment(ref)}/bill/{_safe_segment(invoice_id)}/file"
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/pdf"}
+        try:
+            async with self._limit:
+                async with self._session.get(
+                    API_BASE + path, headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT_SECONDS * 2),
+                    allow_redirects=False,
+                ) as response:
+                    if response.status in (401, 403):
+                        raise ContarinaAuthError("SOL authentication required")
+                    if response.status != 200:
+                        raise ContarinaConnectionError(f"SOL HTTP {response.status}")
+                    if response.content_type != "application/pdf":
+                        raise ContarinaConnectionError("SOL did not return a PDF")
+                    if response.content_length is not None and response.content_length > PDF_MAX_BYTES:
+                        raise ContarinaConnectionError("Invoice PDF too large")
+                    data = bytearray()
+                    async for chunk in response.content.iter_chunked(65536):
+                        if len(data) + len(chunk) > PDF_MAX_BYTES:
+                            raise ContarinaConnectionError("Invoice PDF too large")
+                        data.extend(chunk)
+        except (ContarinaAuthError, ContarinaConnectionError):
+            raise
+        except (aiohttp.ClientError, asyncio.TimeoutError):
+            # aiohttp errors may embed the request URL: never chain them into messages.
+            raise ContarinaConnectionError("SOL connection failed") from None
+        if bytes(data[:5]) != b"%PDF-":
+            raise ContarinaConnectionError("Invalid PDF signature")
+        return bytes(data)

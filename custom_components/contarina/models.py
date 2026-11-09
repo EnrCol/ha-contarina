@@ -1,5 +1,6 @@
 """Pure parsers for Contarina response shapes, safe to test without Home Assistant."""
 from __future__ import annotations
+import re
 import base64
 import binascii
 import json
@@ -180,6 +181,21 @@ def _safe_amount(value: Any) -> Decimal | None:
     return amount if amount is not None and amount.is_finite() else None
 
 
+SAFE_INVOICE_NUMBER = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
+def invoice_pdf_id(invoice: dict[str, Any]) -> str | None:
+    """SOL id used by /api/contracts/{ref}/bill/{id}/file (id_fattura_emessa, int)."""
+    value = invoice.get("id_fattura_emessa")
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and 0 < value < 10**12:
+        return str(value)
+    if isinstance(value, str) and value.isascii() and value.isdecimal() and 0 < len(value) <= 12 and int(value) > 0:
+        return str(int(value))
+    return None
+
+
 def invoice_summary(items: Any, year: int, today: date) -> dict[str, Any]:
     """Summarize SOL invoices without assuming amounts are paid or outstanding.
 
@@ -190,6 +206,7 @@ def invoice_summary(items: Any, year: int, today: date) -> dict[str, Any]:
     invoices = required_list(items)
     yearly_totals: dict[int, Decimal] = {}
     history: list[dict[str, Any]] = []
+    per_year: dict[str, dict[str, Any]] = {}
     excluded = 0
     open_count = 0
     upcoming_count = 0
@@ -215,7 +232,18 @@ def invoice_summary(items: Any, year: int, today: date) -> dict[str, Any]:
             yearly_totals[issued.year] = yearly_totals.get(issued.year, Decimal("0")) + amount
         else:
             excluded += 1
+        invoice_id = invoice_pdf_id(item)
+        number = str(item.get("numero_fattura") or "").strip()
+        if issued is not None:
+            year_row = per_year.setdefault(str(issued.year), {"numero_fatture": 0, "totale_fatturato": 0.0})
+            year_row["numero_fatture"] += 1
+            if includable:
+                year_row["totale_fatturato"] = round(year_row["totale_fatturato"] + float(amount), 2)
         history.append({
+            "id": invoice_id,
+            "numero": number if SAFE_INVOICE_NUMBER.fullmatch(number) else None,
+            "anno": issued.year if issued else None,
+            "pdf_disponibile": invoice_id is not None and item.get("file_esistente") == 1,
             "emissione": issued.isoformat() if issued else None,
             "scadenza": due.isoformat() if due else None,
             "importo": float(amount) if amount is not None else None,
@@ -238,6 +266,7 @@ def invoice_summary(items: Any, year: int, today: date) -> dict[str, Any]:
         "year_total": float(yearly_totals.get(year, Decimal("0"))),
         "year_totals": annual_totals,
         "excluded_count": excluded,
+        "per_year": dict(sorted(per_year.items(), reverse=True)),
         "history": history[:history_limit],
         "history_truncated": len(history) > history_limit,
     }

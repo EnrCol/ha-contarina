@@ -1,0 +1,7 @@
+download_invoices:
+  fields:
+    invoice_id:
+      required: false
+      example: "123456"
+      selector:
+        text:

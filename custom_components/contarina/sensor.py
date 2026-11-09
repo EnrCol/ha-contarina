@@ -45,6 +45,13 @@ class ContarinaSensor(ContarinaEntity, SensorEntity):
         return self._attributes_fn(self.info) if self.info and self._attributes_fn else None
 
 
+class ContarinaInvoiceHistorySensor(ContarinaSensor):
+    """Invoice history for the bundled card; per-invoice details are not recorded."""
+
+    # Recorder keeps the state (count) but not invoice identifiers or amounts history.
+    _unrecorded_attributes = frozenset({"storico_fatture", "riepilogo_annuale", "totali_annuali_fatturati", "utenza"})
+
+
 def _collection_text(data: dict[str, Any], offset: int) -> str:
     labels = data.get("calendar", {}).get(dt_util.now().date() + timedelta(days=offset), ())
     return ", ".join(labels) if labels else "Nessun rifiuto"
@@ -94,6 +101,9 @@ def _invoice_summary(data: dict[str, Any]) -> dict[str, Any]:
 def _invoice_history_attributes(data: dict[str, Any]) -> dict[str, Any]:
     summary = _invoice_summary(data)
     return {
+        "contarina_metric": "invoice_history",
+        "utenza": data.get("contract", {}).get("reference_code"),
+        "riepilogo_annuale": summary.get("per_year", {}),
         "storico_fatture": summary.get("history", []),
         "totali_annuali_fatturati": summary.get("year_totals", {}),
         "documenti_esclusi_dai_totali": summary.get("excluded_count", 0),
@@ -126,7 +136,7 @@ def _standard_sensors(coordinator: ContarinaCoordinator, ref: str) -> list[Senso
         ContarinaSensor(coordinator, ref, "ultima_fattura", "Ultima fattura",
                         _last_invoice_amount, device_class=SensorDeviceClass.MONETARY,
                         unit="EUR", attributes=_invoice_attributes),
-        ContarinaSensor(coordinator, ref, "fatture_totali", "Fatture disponibili",
+        ContarinaInvoiceHistorySensor(coordinator, ref, "fatture_totali", "Fatture disponibili",
                         lambda d: _invoice_summary(d).get("count"),
                         attributes=_invoice_history_attributes),
         # This sensor keeps its existing unique ID and explains its contents

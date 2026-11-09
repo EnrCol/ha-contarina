@@ -31,7 +31,16 @@ jobs:
           python-version: '3.14'
       # Newest harness available on PyPI (pins its own HA release; 2026.11 harness not yet published).
       - name: Install Home Assistant test harness
-        run: python -m pip install pytest-homeassistant-custom-component playwright
+        run: |
+          python -m pip install pytest-homeassistant-custom-component playwright
+          # frontend/lovelace are integration dependencies (bundled invoice card):
+          # install the frontend release pinned by the installed Home Assistant.
+          python - <<'PY' > frontend-req.txt
+          import json, os, homeassistant
+          path = os.path.join(os.path.dirname(homeassistant.__file__), "components", "frontend", "manifest.json")
+          print("\n".join(json.load(open(path))["requirements"]))
+          PY
+          python -m pip install -r frontend-req.txt
       - name: Config flow, reconnect views and Chrome end-to-end
         env:
           CHROME_PATH: /usr/bin/google-chrome

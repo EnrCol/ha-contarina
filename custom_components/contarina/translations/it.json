@@ -75,5 +75,17 @@
         }
       }
     }
+  },
+  "services": {
+    "download_invoices": {
+      "name": "Scarica fatture",
+      "description": "Salva nella cartella Media di Home Assistant (contarina/fatture/ANNO/) i PDF delle fatture Contarina disponibili, saltando quelli già presenti. Senza ID scarica tutte le fatture mancanti.",
+      "fields": {
+        "invoice_id": {
+          "name": "ID fattura",
+          "description": "Identificativo SOL della singola fattura (campo id nello storico). Lascia vuoto per tutte."
+        }
+      }
+    }
   }
 }

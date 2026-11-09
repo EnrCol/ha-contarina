@@ -75,5 +75,17 @@
         }
       }
     }
+  },
+  "services": {
+    "download_invoices": {
+      "name": "Download invoices",
+      "description": "Saves the available Contarina invoice PDFs to the Home Assistant media folder (contarina/fatture/YEAR/), skipping files already archived. Without an ID all missing invoices are downloaded.",
+      "fields": {
+        "invoice_id": {
+          "name": "Invoice ID",
+          "description": "SOL identifier of a single invoice (id field in the history). Leave empty for all."
+        }
+      }
+    }
   }
 }
