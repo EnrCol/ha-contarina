@@ -2,6 +2,13 @@
 
 Le versioni con suffisso `b*` sono **beta**; la 0.2.6 è la prima versione **stabile** del progetto. L'API Contarina SOL resta non pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
 
+## [0.2.8b1] — Riconnessione dal browser più affidabile
+
+- La pagina di ricezione leggeva solo la parte del corpo già arrivata: se il token arrivava in più
+  pacchetti (connessione lenta, proxy, accesso remoto) la riconnessione falliva con "Richiesta non
+  valida". Ora il corpo viene letto fino alla fine.
+- Gli invii scartati sono annotati nel log di Home Assistant con il motivo (mai il token).
+
 ## [0.2.7] — Stabile: scadenza ultima fattura e card di esempio
 
 - Promossa a stabile la beta **0.2.7b1** dopo il collaudo su Home Assistant TEST 2026.11.0: sensore nativo `date` con valore ISO, emissione, totale fattura e stato SOL corretti.

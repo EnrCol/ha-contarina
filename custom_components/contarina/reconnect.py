@@ -1,6 +1,8 @@
 """HTTP views for the browser reconnect (external step of the reauth/reconfigure flow)."""
 from __future__ import annotations
 
+import logging
+
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS, HomeAssistantView
 from homeassistant.core import HomeAssistant, callback
@@ -12,6 +14,8 @@ from .pairing import (
     MAX_BODY_BYTES, OUTCOME_MESSAGES, RECEIVE_PATH, SECURITY_HEADERS, START_PATH,
     PendingStore, origin_allowed, parse_receive_body, receive_page, start_page,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 DATA_STORE = f"{DOMAIN}_reconnect_store"
 DATA_VIEWS = f"{DOMAIN}_reconnect_views"
@@ -48,6 +52,23 @@ def _json(result: str, status: int) -> web.Response:
     )
 
 
+async def _read_body(request: web.Request, limit: int) -> bytes:
+    """Read the body to the end (or ``limit``).
+
+    ``StreamReader.read(n)`` returns only the bytes already received, so a body
+    split across TCP segments (slow links, proxies) arrived truncated.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    while size < limit:
+        chunk = await request.content.read(limit - size)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b"".join(chunks)
+
+
 class ReconnectStartView(HomeAssistantView):
     """Opened by the HA frontend from the external step; authorized by the one-time state."""
 
@@ -82,9 +103,19 @@ class ReconnectReceiveView(HomeAssistantView):
         if not origin_allowed(request.headers.get("Origin"), scheme, request.host):
             return _json("forbidden_origin", 403)
         if request.content_type != "application/json" or (request.content_length or 0) > MAX_BODY_BYTES:
+            _LOGGER.warning(
+                "Reconnect delivery rejected: Content-Type %s, %s bytes",
+                request.content_type, request.content_length,
+            )
             return _json("bad_request", 400)
-        parsed = parse_receive_body(await request.content.read(MAX_BODY_BYTES + 1))
+        raw = await _read_body(request, MAX_BODY_BYTES + 1)
+        parsed = parse_receive_body(raw)
         if parsed is None:
+            # Never log the body: it carries the JWT.
+            _LOGGER.warning(
+                "Reconnect delivery rejected: unreadable body (%s of %s bytes)",
+                len(raw), request.content_length,
+            )
             return _json("bad_request", 400)
         store = get_store(hass)
         if parsed[0] == "code":
