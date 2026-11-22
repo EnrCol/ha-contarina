@@ -2,7 +2,7 @@
 
 Le versioni con suffisso `b*` sono **beta**; la 0.2.6 è la prima versione **stabile** del progetto. L'API Contarina SOL resta non pubblica e può cambiare. Le release GitHub sono il riferimento per installazione e downgrade.
 
-## [0.2.8b1] — Riconnessione dal browser più affidabile
+## [0.2.8] — Correzione: riconnessione dal browser più affidabile
 
 - La pagina di ricezione leggeva solo la parte del corpo già arrivata: se il token arrivava in più
   pacchetti (connessione lenta, proxy, accesso remoto) la riconnessione falliva con "Richiesta non

@@ -4,7 +4,7 @@
 
 **Integrazione non ufficiale** per consultare in Home Assistant il calendario della raccolta differenziata, i contenitori, gli svuotamenti e le fatture dello [Sportello Online Contarina (SOL)](https://sol.servizicontarina.it/).
 
-> **Versione stabile 0.2.7 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
+> **Versione stabile 0.2.8 · Home Assistant 2026.11 o successivo.** Progetto indipendente, non sviluppato, affiliato o approvato da Contarina S.p.A. Utilizza API SOL non pubbliche e soggette a modifica. Installa a tuo rischio; conserva i sistemi di raccolta già funzionanti fino al confronto dei dati.
 
 [![Apri questo repository nel Marketplace di Home Assistant](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=EnrCol&repository=ha-contarina&category=integration)
 
@@ -25,7 +25,7 @@ L'integrazione legge le API SOL con richieste GET: **non paga fatture, non cambi
 **Requisito:** Home Assistant 2026.11.0 o successivo con accesso allo Sportello Online Contarina.
 
 1. Usa il pulsante **Marketplace** qui sopra, oppure apri **Impostazioni → Marketplace → Aggiungi da link** e inserisci `https://github.com/EnrCol/ha-contarina`.
-2. Aggiungi il repository come **integrazione**, installa la release stabile `v0.2.7` e riavvia Home Assistant se richiesto.
+2. Aggiungi il repository come **integrazione**, installa la release stabile `v0.2.8` e riavvia Home Assistant se richiesto.
 3. Apri **Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Contarina SOL (unofficial)**.
 4. Seleziona **Collega dal browser** (consigliato). Nella pagina che si apre crea il preferito **Invia token a Home Assistant**, accedi a SOL e usa il preferito dalla pagina SOL autenticata.
 5. Se il login avviene su un altro browser o dispositivo, inserisci il **codice di abbinamento** mostrato da Home Assistant (monouso, valido 10 minuti).
